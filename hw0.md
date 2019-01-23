@@ -96,27 +96,27 @@ Sizing up C types and their limits, `int` and `char` arrays, and incrementing po
 1.  How many bits are there in a byte?
 
 ```c
-// Your answer here
+8 bits is one byte.
 ```
 
 2.  How many bytes are there in a `char`?
 
 ```c
-// Your answer here
+A `char` is one byte.
 ```
 
 3.  How many bytes the following are on your machine? 
 
-* `int`: 
-* `double`: 
-* `float`:
-* `long`:
-* `long long`: 
+* `int`: 4 bytes 
+* `double`: 8 bytes 
+* `float`: 4 bytes
+* `long`: 4 bytes
+* `long long`: 8 bytes
 
 4.  On a machine with 8 byte integers, the declaration for the variable `data` is `int data[8]`. If the address of data is `0x7fbd9d40`, then what is the address of `data+2`?
 
 ```c
-// Your answer here
+
 ```
 
 5.  What is `data[3]` equivalent to in C? Hint: what does C convert `data[3]` to before dereferencing the address? Remember, the type of a string constant `abc` is an array.
