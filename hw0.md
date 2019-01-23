@@ -162,14 +162,17 @@ char* Y = "ab";
 Program arguments, environment variables, and working with character arrays (strings)
 
 1.  What are two ways to find the length of `argv`?
-First, one can find the length of `argv` through `argc` which has the number of arguments.
-Second, one can keep a counter and a for loop because argv will have an extra null string. When the for loop hits the null string, it should exit. Then the counter should be the length of `argv`.
 
-2.  What does `argv[0]` represent?
+First, one can find the length of `argv` through `argc` which has the number of arguments.
+Second, one can keep a counter and a for loop because argv will have an extra null pointer in the end. When the for loop hits the null pointer, it should exit. Then the counter should be the length of `argv`.
+
+2.  What does `argv[0]` represent? 
+
 It represents the first argument that is supplied.
 
 3.  Where are the pointers to environment variables stored (on the stack, the heap, somewhere else)?
 
+h
 
 4.  On a machine where pointers are 8 bytes, and with the following code:
 
