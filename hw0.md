@@ -54,8 +54,8 @@ void write_triangle(int n) {
 3.  **Writing to files** Take your program from “Hello, World!” modify it write to a file called `hello_world.txt`. Make sure to to use correct flags and a correct mode for `open()` (`man 2 open` is your friend).
 
 ```
-#include<unistd.h>
-#include<fcntl.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 int main() {
 	mode_t user_mode = S_IRUSR | S_IWUSR;
@@ -63,12 +63,22 @@ int main() {
 	write(myFile, "Hello World!\n", 13);
 	close(myFile);
 	return 0;
+}
 ```
 
-5. **Not everything is a system call** Take your program from “Writing to files” and replace `write()` with `printf()`. *Make sure to print to the file instead of standard out!*
+4. **Not everything is a system call** Take your program from “Writing to files” and replace `write()` with `printf()`. *Make sure to print to the file instead of standard out!*
 
 ```c
-// Your code here
+#include <unistd.h>
+#include <fcntl.h>
+
+int main() {
+	mode_t user_mode = S_IRUSR | S_IWUSR;
+	close(1);
+	int myFile = open("hello_world.txt", O_RDWR | O_TRUNC | O_CREAT, user_mode);
+	printf("Hello World! This is writing by printf.\n");
+	return 0;
+}
 ```
 
 6.  What are some differences between `write()` and `printf()`?
