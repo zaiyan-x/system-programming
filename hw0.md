@@ -19,7 +19,7 @@ HW0 questions are below. Please use this document to write the answers. This wil
 
 In which our intrepid hero battles standard out, standard error, file descriptors and writing to files
 
-1.  **Hello, World! (system call style)** Write a program that uses `write()` to print out “Hi! My name is <Your Name>”.
+1.  **Hello, World! (system call style)** Write a program that uses `write()` to print out “Hi! My name is (Your Name)”.
 
 ```c
 #include <unistd.h>
@@ -116,13 +116,13 @@ A `char` is one byte.
 4.  On a machine with 8 byte integers, the declaration for the variable `data` is `int data[8]`. If the address of data is `0x7fbd9d40`, then what is the address of `data+2`?
 
 ```c
-
+0x7fbd9d50
 ```
 
 5.  What is `data[3]` equivalent to in C? Hint: what does C convert `data[3]` to before dereferencing the address? Remember, the type of a string constant `abc` is an array.
 
 ```c
-// Your answer here
+*(data + 3)
 ```
 
 6.  Why does this segfault?
@@ -131,29 +131,30 @@ A `char` is one byte.
 char *ptr = "hello";
 *ptr = 'J';
 ```
+Because the constant "hello" is read-only memory. If one tries to change it, it will cause segfault.
 
 7.  What does `sizeof("Hello\0World")` return?
 
 ```c
-// Your answer here
+12 (bytes)
 ```
 
 8.  What does `strlen("Hello\0World")` return?
 
 ```c
-// Your answer here
+5 (bytes)
 ```
 
 9.  Give an example of X such that `sizeof(X)` is 3.
 
 ```c
-// Your code here
+char X[] = "ab";
 ```
 
 10. Give an example of Y such that `sizeof(Y)` might be 4 or 8 depending on the machine.
 
 ```c
-// Your code here
+char* Y = "ab";
 ```
 
 ### Chapter 3
