@@ -81,10 +81,12 @@ int main() {
 }
 ```
 
-6.  What are some differences between `write()` and `printf()`?
+5.  What are some differences between `write()` and `printf()`?
 
 ```c
-// Your code here
+1. write() is a syscall while printf() is a standard library function, but printf() will eventually call write().
+2. printf() has a buffer that holds bytes to be sent while write() (in theory) immediately send given characters to output devices. Thus, write(), as a syscall, is very costly.
+3. printf() can do some string processing or let you write data in different formats.
 ```
 
 ### Chapter 2
