@@ -19,22 +19,33 @@ HW0 questions are below. Please use this document to write the answers. This wil
 
 In which our intrepid hero battles standard out, standard error, file descriptors and writing to files
 
-1.  **Hello, World! (system call style)** Write a program that uses `write()` to print out “Hi! My name is &lt;Your Name&gt;”.
+1.  **Hello, World! (system call style)** Write a program that uses `write()` to print out “Hi! My name is <Your Name>”.
 
 ```c
-// Your code here
+#include <unistd.h>
+
+int main() {
+	write(1, "Hi! My name is Zaiyan Xu.\n", sizeof("Hi! My name is Zaiyan Xu.\n"))
+	return 0; 
 ```
 
 2.  **Hello, Standard Error Stream!** Write a function to print out a triangle of height `n` to standard error. Your function should have the signature `void write_triangle(int n)` and should use `write()`. The triangle should look like this, for n = 3:
 
 ```
 *
-**
-***
 ```
 
 ```c
-// Your code here
+void write_triangle(int n) {
+	int count;
+	for (count = 0; count < n; count++) {
+		int count2;
+		for (count2 = 0; count2 <= count; count2++) {
+			write(2, "*", 1);
+		}
+		write(2, "\n", 1);
+	}
+}
 ```
 
 3.  **Writing to files** Take your program from “Hello, World!” modify it write to a file called `hello_world.txt`. Make sure to to use correct flags and a correct mode for `open()` (`man 2 open` is your friend).
