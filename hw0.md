@@ -164,7 +164,7 @@ Program arguments, environment variables, and working with character arrays (str
 1.  What are two ways to find the length of `argv`?
 
 First, one can find the length of `argv` through `argc` which has the number of arguments.
-Second, one can keep a counter and a for loop because argv will have an extra null pointer in the end. When the for loop hits the null pointer, it should exit. Then the counter should be the length of `argv`.
+Second, one can keep a counter and a for loop because argv will have an extra null pointer in the end. When the for loop hits the null pointer (one can use the while(*argv) trick), it should exit. Then the counter should be the length of `argv`.
 
 2.  What does `argv[0]` represent? 
 
