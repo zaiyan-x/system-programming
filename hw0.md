@@ -172,7 +172,7 @@ It represents the first argument that is supplied.
 
 3.  Where are the pointers to environment variables stored (on the stack, the heap, somewhere else)?
 
-h
+The environment variables are already stored in `environment segment` above stack. However, user must declare `char** environ` in program. So the pointers to environment variables are global variables which are stored in `data segment` (neither stack nor heap).
 
 4.  On a machine where pointers are 8 bytes, and with the following code:
 
@@ -182,6 +182,10 @@ h
     ```
 
     What are the values of `sizeof(ptr)` and `sizeof(array)`? Why?
+
+`sizeof(ptr)` will be 8 bytes because compiler will treat ptr as a pointer, which is 8 bytes in this machine.
+
+`sizeof(array)` will be 6 bytes because compiler will treat array as a character array. So sizeof will give the actual memory size that this array occupied, which is 5 characters plus null character. So 6 bytes in total. 
 
 ```c
 // Your answer here
