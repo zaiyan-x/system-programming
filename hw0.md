@@ -299,7 +299,11 @@ Text input and output and parsing using `getchar`, `gets`, and `getline`.
 
 1.  What functions can be used for getting characters from `stdin` and writing them to `stdout`?
 
+gets() and puts().
+
 2.  Name one issue with `gets()`.
+
+If stdin input is longer than specified memory space for gets(), then one can end up corrupting things stored immediately after the specified space.
 
 3.  Write code that parses the string “Hello 5 World” and initializes 3 variables to “Hello”, 5, and “World”.
 
