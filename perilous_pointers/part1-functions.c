@@ -22,7 +22,7 @@
  *     The grade to check.
  */
 void one(const char *grade) {
-    if (grade > 70)
+    if (atoi(grade) > 70)
         printf("%f passed!\n", grade);
     else
         printf("%s not passed!\n", grade);
@@ -34,7 +34,7 @@ void one(const char *grade) {
  */
 void two() {
     int x = 4;
-    int *p = x;
+    int *p = &x;
 
     printf("The value of p is: %d\n", *p);
 }
@@ -51,7 +51,7 @@ void two() {
  *     Second input parameter.
  */
 void three(const int *x, const int *y) {
-    if (x == y)
+    if (*x == *y)
         printf("x and y are equal.\n");
     else
         printf("x and y are different.\n");
@@ -70,8 +70,9 @@ void three(const int *x, const int *y) {
  *     contains the value of the input parameter.
  */
 float *four(const int *x) {
-    float *p = *x;
-    return p;
+	float * p = malloc(sizeof(float));
+	*p = *x;  		 	  
+	return p;
 }
 
 /**
@@ -83,7 +84,7 @@ float *four(const int *x) {
  *
  */
 void five(const char *a) {
-    if (a >= 'A' && a <= 'z')
+    if (*a >= 'A' && *a <= 'z')
         printf("a is a letter.\n");
     else
         printf("a is not a letter.\n");
@@ -95,7 +96,7 @@ void five(const char *a) {
  * prints the concatenated string.
  */
 void six(const char *str) {
-    char *s = "Hello ";
+    char s[] = "Hello ";
     strcat(s, str);
     printf("%s\n", s);
 }
@@ -104,7 +105,7 @@ void six(const char *str) {
  * Creates an array of values containing the values {0.0, 0.1, ..., 0.9}.
  */
 void seven() {
-    float *values;
+    float values[10];
 
     int i, n = 10;
     for (i = 0; i < n; i++)
@@ -122,7 +123,7 @@ void eight(int a) {
     int **values;
 
     int i, j;
-    values = malloc(10 * sizeof(int));
+    values = malloc(100 * sizeof(int));
     for (i = 0; i < 10; i++)
         for (j = 0; j < 10; j++)
             values[i][j] = i * j * a;
@@ -143,12 +144,12 @@ void eight(int a) {
  *     Input parameter, used to determine which string is printed.
  */
 void nine(const char *s) {
-    switch (s) {
-    case "blue":
+    switch (0) {
+    case strcmp(s, "blue"):
         printf("Orange and BLUE!\n");
         break;
 
-    case "orange":
+    case strcmp(s, "orange"):
         printf("ORANGE and blue!\n");
         break;
 
@@ -165,7 +166,7 @@ void nine(const char *s) {
  *     The diameter of the circle.
  */
 void ten(const int d) {
-    printf("The radius of the circle is: %f.\n", d / 2);
+    printf("The radius of the circle is: %f.\n", (float) d / 2);
 }
 
 /**
