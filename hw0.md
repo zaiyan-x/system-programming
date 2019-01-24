@@ -187,11 +187,9 @@ The environment variables are already stored in `environment segment` above stac
 
 `sizeof(array)` will be 6 bytes because compiler will treat array as a character array. So sizeof will give the actual memory size that this array occupied, which is 5 characters plus null character. So 6 bytes in total. 
 
-```c
-// Your answer here
-```
-
 5.  What data structure manages the lifetime of automatic variables?
+
+Stack
 
 ### Chapter 4
 
@@ -199,15 +197,31 @@ Heap and stack memory, and working with structs
 
 1.  If I want to use data after the lifetime of the function it was created in ends, where should I put it? How do I put it there?
 
+You should put the data in heap by calling malloc (and remember to free the memory).
+
 2.  What are the differences between heap and stack memory?
+
+First, stack memory is automatic allocation where users do not need to de-allocate or free the assigned memory. Heap is dynamic allocation where users need to manually free the assigned memory.
+
+Second, stack memory has the lifetime of the function where it is created. Once the function is returned, the memory is flushed. Heap memory can have lifespan beyond the lifetime of the function where it is allocated, and it is not necessary freed when the whole program exits (while most of modern OS will free your heap).
 
 3.  Are there other kinds of memory in a process?
 
+Yes. There is static allocation (stored in data segment rather than heap or stack). For example, if you create a static variable within a function, they will be stored in static memory.
+
 4.  Fill in the blank: “In a good C program, for every malloc, there is a \_\_\_”.
+
+free().
 
 5.  What is one reason `malloc` can fail?
 
+If malloc is unable to provide the amount of bytes requested by user.
+
 6.  What are some differences between `time()` and `ctime()`?
+
+First, `time()` returns time_t type while `ctime()` returns a human-readable string.
+
+Second, `ctime()` returns a statically stored result. It can be overwritted by re-calling functions from `ctime` family.
 
 7.  What is wrong with this code snippet?
 
@@ -215,6 +229,7 @@ Heap and stack memory, and working with structs
 free(ptr);
 free(ptr);
 ```
+One should not free same pointer twice. It may confuse the pointer that heap keeps tracking.
 
 8.  What is wrong with this code snippet?
 
@@ -223,8 +238,12 @@ free(ptr);
 printf("%s\n", ptr);
 ```
 
+The pointer `ptr` has been freed. One should never use the pointer again because it is not guaranteed that the thing orginally stored will remain there.
+
 9.  How can one avoid the previous two mistakes?
 
+First, one should keep in mind that "one malloc, one free".
+Second, one should avoid dangling pointer by set the pointer to NULL.
 
 10. Use the following space for the next four questions
 
