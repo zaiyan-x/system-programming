@@ -308,15 +308,34 @@ If stdin input is longer than specified memory space for gets(), then one can en
 3.  Write code that parses the string “Hello 5 World” and initializes 3 variables to “Hello”, 5, and “World”.
 
 ```c
-// Your code here
+char* data = "Hello 5 World";
+int num = 0;
+char word[40];
+char word2[40];
+sscanf(data, "%s %d %s", word, &num, word2);
 ```
 
 4.  What does one need to define before including `getline()`?
 
+#define _GNU_SOURCE
+
 5.  Write a C program to print out the content of a file line-by-line using `getline()`.
 
 ```c
-// Your code here
+#define _GNU_SOURCE
+
+#include <stdio.h>
+#include <stdlib.h>
+
+int main() {
+char *buffer = NULL;
+size_t capacity = 0;
+ssize_t result;
+while ((result = getline(&buffer, &capacity, stdin)) > 0) {
+	printf("%s", buffer);
+}
+free(buffer);
+return 0;
 ```
 
 ### C Development
