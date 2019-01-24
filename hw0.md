@@ -242,20 +242,45 @@ The pointer `ptr` has been freed. One should never use the pointer again because
 
 9.  How can one avoid the previous two mistakes?
 
-First, one should keep in mind that "one malloc, one free".
+First, one should keep in mind that "one malloc (or any function that will result in dynamic allocation), one free".
 Second, one should avoid dangling pointer by set the pointer to NULL.
 
 10. Use the following space for the next four questions
 
 ```c
 // 10
+struct Person {
+	char* name;
+	int age;
+	struct Person*(*friends)[10];
+};
+typedef struct Person Person;
 
-// 12
+//12
+Person* create(char* a_name, int an_age) {
+	Person* result = malloc(sizeof(Person));
+	result->name = strdup(a_name);
+	result->age = an_age;
+	result->friends = malloc(sizeof(*result->friends));
+	return result;
+}
 
-// 13
+//13
+void destroy(Person* to_delete) {
+	free(to_delete->name);
+	free(to_delete->friends);
+	memset(to_delete, 0, sizeof(Person));
+	free(to_delete);
+}
 
 int main() {
-// 11
+//11
+Person* person1 = create("Agent Smith", 128);
+Person* person2 = create("Sonney Moore", 256);
+*(person1->friends)[0] = person2;
+*(person2->friends)[0] = person1;
+destroy(person1);
+destroy(person2);
 }
 ```
 
