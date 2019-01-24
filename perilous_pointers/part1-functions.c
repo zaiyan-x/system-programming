@@ -223,6 +223,9 @@ long int clear_bits(long int value, long int flag) {
 int little_automaton(int (*transition)(int, char), const char *input_string) {
     int state = 0;
     // put something here
-
+    while(*input_string) {
+	state = transition(state, *input_string);
+	input_string++;
+    }
     return state;
 }
