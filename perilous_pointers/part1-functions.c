@@ -23,7 +23,7 @@
  */
 void one(const char *grade) {
     if (atoi(grade) > 70)
-        printf("%f passed!\n", grade);
+        printf("%f passed!\n", (float) atoi(grade));
     else
         printf("%s not passed!\n", grade);
 }
@@ -84,7 +84,7 @@ float *four(const int *x) {
  *
  */
 void five(const char *a) {
-    if (*a >= 'A' && *a <= 'z')
+    if((*a >= 'A' && *a <= 'Z') || (*a >= 'a' && *a <= 'z'))
         printf("a is a letter.\n");
     else
         printf("a is not a letter.\n");
@@ -123,7 +123,10 @@ void eight(int a) {
     int **values;
 
     int i, j;
-    values = malloc(100 * sizeof(int));
+    values = malloc(10 * sizeof(int*));
+    for (i = 0; i < 10; i++) {
+	values[i] = malloc(10 * sizeof(int));
+	}
     for (i = 0; i < 10; i++)
         for (j = 0; j < 10; j++)
             values[i][j] = i * j * a;
@@ -144,19 +147,13 @@ void eight(int a) {
  *     Input parameter, used to determine which string is printed.
  */
 void nine(const char *s) {
-    switch (0) {
-    case strcmp(s, "blue"):
-        printf("Orange and BLUE!\n");
-        break;
-
-    case strcmp(s, "orange"):
-        printf("ORANGE and blue!\n");
-        break;
-
-    default:
-        printf("orange and blue!\n");
-        break;
-    }
+	if (!strcmp(s, "blue")) {
+	printf("Orange and BLUE!\n");
+	} else if (!strcmp(s, "orange")) {
+	printf("ORANGE and blue!\n");
+	} else {
+	printf("orange and blue!\n");
+	}
 }
 
 /**
@@ -193,7 +190,8 @@ void ten(const int d) {
  *     The flag (or mask) used in order to clear bits from "value".
  */
 long int clear_bits(long int value, long int flag) {
-    // TODO clear_bits
+    	int result = value & (~flag);
+	return result;
 }
 
 /**
