@@ -345,27 +345,38 @@ These are general tips for compiling and developing using a compiler and git. So
 
 1.  What compiler flag is used to generate a debug build?
 
+-g
 
 2.  You fix a problem in the Makefile and type `make` again. Explain why this may be insufficient to generate a new build.
 
+Because not all source files will be remade if one does not clean the original files. One should clean and start from scratch.
 
 3.  Are tabs or spaces used to indent the commands after the rule in a Makefile?
 
+Each line in the rule recipe must start with a tab.
 
 4.  What does `git commit` do? What’s a `sha` in the context of git?
 
+The "commit" command is used to save your changes to the local repository.
+`sha` is a unique key used to store the content one hands to Git.
 
 5.  What does `git log` show you?
 
+git log lists the commits made in that repository in reverse chronological order, that is, the most recent commits show up first.
 
 6.  What does `git status` tell you and how would the contents of `.gitignore` change its output?
 
+`git status` shows the state of the working directory and the staging area.
+`gitignore` will specify intentionally untracked files that Git should ignore but files already tracked by Git are not affected.
 
 7.  What does `git push` do? Why is it not just sufficient to commit with `git commit -m ’fixed all bugs’ `?
+
+`git commit` only commit to local repo while `git push` is the definitive step that upload local repository content to a remote repository.
 
 
 8.  What does a non-fast-forward error `git push` reject mean? What is the most common way of dealing with this?
 
+It means git cannot make the change on the remote without losing commits, so it refuses the push. Usually you can remedy this by fetch and merge the remote branch.
 
 ### Optional: Just for fun
 
