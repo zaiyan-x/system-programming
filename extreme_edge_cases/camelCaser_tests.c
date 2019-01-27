@@ -91,15 +91,18 @@ int test_camelCaser(char **(*camelCaser)(const char *),
 	}
 	
 	//Test 3
-	char input_3[63];
+	char input_3[65];
 	int j;
 	for(j = 1; j < 32; j++) {
 		input_3[j * 2 - 2] = j;
 		input_3[j * 2 - 1] = '.';
 	}
-	input_3[62] = 0;
+	input_3[62] = 127;
+	input_3[63] = '.';
+	input_3[64] = 0;
+
 	char** user_solution_3 = (*camelCaser)(input_3);
-	char** solution_3 = malloc(32 * sizeof(char*));
+	char** solution_3 = malloc(33 * sizeof(char*));
 	solution_3[0] = "\x01";
 	solution_3[1] = "\x02";
 	solution_3[2] = "\x03";
@@ -131,7 +134,8 @@ int test_camelCaser(char **(*camelCaser)(const char *),
 	solution_3[28] = "\x1D";
 	solution_3[29] = "\x1E";
 	solution_3[30] = "\x1F";
-	solution_3[31] = NULL;
+	solution_3[31] = "\x7F";
+	solution_3[32] = NULL;
 	
 	if(cal_len_str_arr(user_solution_3) != cal_len_str_arr(solution_3)) {
 		(*destroy) (user_solution_3);

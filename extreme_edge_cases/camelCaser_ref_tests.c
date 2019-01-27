@@ -9,19 +9,33 @@
 
 int main() {
     // Enter the string you want to test with the reference here
-    char input[63];
+    /* char input[65];
 
     int j = 0;
     for(j=1;j<32;j++){
     	input[j*2-2]=j;
     	input[j*2-1]='.';
     }
-    input[62] = 0; 
+    input[62] = 127;
+    input[63] = '.';
+    input[64] = 0; */
 
     /*char input[3];
     input[0] = 0;
     input[1] = '.';
     input[2] = 0;*/
+
+    char input[20];
+    input[0] = 'H';
+    input[1] = 'e';
+    input[2] = 'l';
+    input[3] = 'l';
+    input[4] = 'o';
+    input[5] = '.';
+    input[6] = 0;
+    input[7] = 'c';
+    input[8] = '.';
+    input[9] = 0;
     // This function prints the reference implementation output on the terminal
     print_camelCaser(input);
 
