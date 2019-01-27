@@ -21,5 +21,7 @@
 int test_camelCaser(char **(*camelCaser)(const char *),
                     void (*destroy)(char **)) {
     // TODO: Return 1 if the passed in function works properly; 0 if it doesn't.
+
+
     return 1;
 }
