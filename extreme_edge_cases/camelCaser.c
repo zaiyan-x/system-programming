@@ -17,10 +17,11 @@ char **camel_caser(const char *input_str) {
 	//Count how many sentences we have (as to initialize array of char* later, we need to know the size)
 	int num_of_sentence = 0;
 	char const * curr_char = input_str;
-	while(*++curr_char) {
+	while(*curr_char) {
 		if(ispunct(*curr_char)) {
 			num_of_sentence++;
 		}
+		curr_char++;
 	}
 
 
@@ -34,17 +35,18 @@ char **camel_caser(const char *input_str) {
    	int num_of_char = 0;
 	int curr_sentence = 0;
 	curr_char = input_str; //re-point to the input_str
-	while(*++curr_char) {
+	while(*curr_char) {
 		if(ispunct(*curr_char)) {
 			result[curr_sentence] = malloc((num_of_char + 1) * sizeof(char));
 			result[curr_sentence][num_of_char] = 0;
 			num_of_char = 0; //reset character counter
 			curr_sentence++; //move to next sentence
 		} else if(isspace(*curr_char)) {
-			continue;
+			//do nothing;
 		} else {
 			num_of_char++;
 		}
+	curr_char++;
 	}
 
 	//Convert
@@ -57,7 +59,7 @@ char **camel_caser(const char *input_str) {
 	curr_sentence = 0;
 	curr_char = input_str;
 	num_of_char = 0;	
-	while(*++curr_char) {
+	while(*curr_char) {
 		//Exclude the case where input_str is not null but it only has space
 		if(!result[curr_sentence]) {
 			break;
@@ -83,15 +85,16 @@ char **camel_caser(const char *input_str) {
 			flag_cap = false;
 			flag_fw = false;
 		}
+	curr_char++;
 	}				
 
 	return result;
 }
 
 void destroy(char **result) {
-	char** temp = result;
-	while(++temp) {
-		free(*temp);
+	int curr_sentence = 0;
+	while(result[++curr_sentence]) {
+		free(result[curr_sentence]);
 	}
 	free(result);
 }
