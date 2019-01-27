@@ -25,17 +25,7 @@ int main() {
     input[1] = '.';
     input[2] = 0;*/
 
-    char input[20];
-    input[0] = 'H';
-    input[1] = 'e';
-    input[2] = 'l';
-    input[3] = 'l';
-    input[4] = 'o';
-    input[5] = '.';
-    input[6] = 0;
-    input[7] = 'c';
-    input[8] = '.';
-    input[9] = 0;
+    char* input = "~!@#$%^&*()_+`-=[];',.{}|:*<>";
     // This function prints the reference implementation output on the terminal
     print_camelCaser(input);
 

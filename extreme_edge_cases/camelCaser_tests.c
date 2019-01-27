@@ -2,7 +2,7 @@
  * Extreme Edge Cases Lab
  * CS 241 - Spring 2019
  */
- 
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -30,7 +30,7 @@ int cal_len_str_arr(char** input_array) {
  * @return              Correctness of the program (0 for wrong, 1 for correct).
  */
 int test_camelCaser(char **(*camelCaser)(const char *),
-                    void (*destroy)(char **)) {
+		void (*destroy)(char **)) {
 	// TODO: Return 1 if the passed in function works properly; 0 if it doesn't.
 	// Test 1
 	char** solution_1 = malloc(27 * sizeof(char*));
@@ -72,14 +72,14 @@ int test_camelCaser(char **(*camelCaser)(const char *),
 
 	int curr_sentence = 0;
 	while(user_solution_1[curr_sentence]) {
-	printf("SOL:%d. %s\n",curr_sentence,  solution_1[curr_sentence]);
-	printf("USER:%d. %s\n",curr_sentence,  user_solution_1[curr_sentence]);	
+		printf("SOL:%d. %s\n",curr_sentence,  solution_1[curr_sentence]);
+		printf("USER:%d. %s\n",curr_sentence,  user_solution_1[curr_sentence]);	
 		if(strcmp(solution_1[curr_sentence], user_solution_1[curr_sentence])) {
 			(*destroy)(user_solution_1);
 			free(solution_1);
 			return 0;
 		}
-	curr_sentence++;
+		curr_sentence++;
 	}
 	(*destroy)(user_solution_1);
 	free(solution_1);
@@ -89,7 +89,7 @@ int test_camelCaser(char **(*camelCaser)(const char *),
 	if (solution_2 != NULL) {
 		return 0;
 	}
-	
+
 	//Test 3
 	char input_3[65];
 	int j;
@@ -136,7 +136,7 @@ int test_camelCaser(char **(*camelCaser)(const char *),
 	solution_3[30] = "\x1F";
 	solution_3[31] = "\x7F";
 	solution_3[32] = NULL;
-	
+
 	if(cal_len_str_arr(user_solution_3) != cal_len_str_arr(solution_3)) {
 		(*destroy) (user_solution_3);
 		free(solution_3);
@@ -145,17 +145,79 @@ int test_camelCaser(char **(*camelCaser)(const char *),
 
 	curr_sentence = 0;
 	while(user_solution_3[curr_sentence]) {
-	printf("SOL:%d. %s\n",curr_sentence,  solution_3[curr_sentence]);
-	printf("USER:%d. %s\n",curr_sentence,  user_solution_3[curr_sentence]);	
+		printf("SOL:%d. %s\n",curr_sentence,  solution_3[curr_sentence]);
+		printf("USER:%d. %s\n",curr_sentence,  user_solution_3[curr_sentence]);	
 		if(strcmp(solution_3[curr_sentence], user_solution_3[curr_sentence])) {
 			(*destroy)(user_solution_3);
 			free(solution_3);
 			return 0;
 		}
-	curr_sentence++;
+		curr_sentence++;
 	}
 	(*destroy)(user_solution_3);
 	free(solution_3);
+
+	//Test 4
+	char* input_4 = "The Heisenbug is an incredibal creature. Facenovel servers get their power from its indeterminism. Code smell can be ignored with INCREDIBLE use of air freshener. God objects are the new religion.";
+
+	char** user_solution_4 = (*camelCaser)(input_4);
+	char** solution_4 = malloc(5 * sizeof(char*));
+
+	solution_4[0] = "theHeisenbugIsAnIncredibalCreature";
+	solution_4[1] = "facenovelServersGetTheirPowerFromItsIndeterminism";
+	solution_4[2] = "codeSmellCanBeIgnoredWithIncredibleUseOfAirFreshener";
+	solution_4[3] = "godObjectsAreTheNewReligion";
+	solution_4[4] = NULL;
+	if(cal_len_str_arr(user_solution_4) != cal_len_str_arr(solution_4)) {
+		(*destroy) (user_solution_4);
+		free(solution_4);
+		return 0;
+	}//Test amount of sentences
+
+	curr_sentence = 0;
+	while(user_solution_4[curr_sentence]) {
+		printf("SOL:%d. %s\n",curr_sentence,  solution_4[curr_sentence]);
+		printf("USER:%d. %s\n",curr_sentence,  user_solution_4[curr_sentence]);	
+		if(strcmp(solution_4[curr_sentence], user_solution_4[curr_sentence])) {
+			(*destroy)(user_solution_4);
+			free(solution_4);
+			return 0;
+		}
+		curr_sentence++;
+	}
+	(*destroy)(user_solution_4);
+	free(solution_4);
+
+	//Test 5
+	char* input_5 = "~!@#$%^&*()_+`-=[];',.{}|:*<>";
+	char** user_solution_5 = (*camelCaser)(input_5);
+	char** solution_5 = malloc(30 * sizeof(char*));
+
+	for(j = 0; j < 29; j++) {
+		solution_5[j] = ""; 
+	}
+	solution_5[29] = NULL;
+	if(cal_len_str_arr(user_solution_5) != cal_len_str_arr(solution_5)) {
+		(*destroy) (user_solution_5);
+		free(solution_5);
+		return 0;
+	}//Test amount of sentences
+
+	curr_sentence = 0;
+	while(user_solution_5[curr_sentence]) {
+		printf("SOL:%d. %s\n",curr_sentence,  solution_5[curr_sentence]);
+		printf("USER:%d. %s\n",curr_sentence,  user_solution_5[curr_sentence]);	
+		if(strcmp(solution_5[curr_sentence], user_solution_5[curr_sentence])) {
+			(*destroy)(user_solution_5);
+			free(solution_5);
+			return 0;
+		}
+		curr_sentence++;
+	}
+	(*destroy)(user_solution_5);
+	free(solution_5);
+
+
 	
-    return 1;
+	return 1;
 }
