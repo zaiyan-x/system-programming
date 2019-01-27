@@ -33,18 +33,36 @@ int test_camelCaser(char **(*camelCaser)(const char *),
                     void (*destroy)(char **)) {
 	// TODO: Return 1 if the passed in function works properly; 0 if it doesn't.
 	// Test 1
-	char** solution_1 = malloc(9 * sizeof(char*));
+	char** solution_1 = malloc(27 * sizeof(char*));
 	solution_1[0] = "";
-	solution_1[1] = "";
-	solution_1[2] = "";
-	solution_1[3] = "";
-	solution_1[4] = "weedIsNotLegalInUsa";
-	solution_1[5] = "soYou";
-	solution_1[6] = "dBetterNotSmokeThat";
-	solution_1[7] = "";
-	solution_1[8] = NULL;
+	solution_1[1] = "1\x02";
+	solution_1[2] = "3";
+	solution_1[3] = "4";
+	solution_1[4] = "5";
+	solution_1[5] = "6";
+	solution_1[6] = "7";
+	solution_1[7] = "8";
+	solution_1[8] = "9";
+	solution_1[9] = "10";
+	solution_1[10] = "11";
+	solution_1[11] = "12";
+	solution_1[12] = "13";
+	solution_1[13] = "14";
+	solution_1[14] = "15";
+	solution_1[15] = "16";
+	solution_1[16] = "17";
+	solution_1[17] = "18";
+	solution_1[18] = "19";
+	solution_1[19] = "20";
+	solution_1[20] = "21";
+	solution_1[21] = "22";
+	solution_1[22] = "23";
+	solution_1[23] = "weedIsNotLegalInUsa";
+	solution_1[24] = "soYouHadBetterNotSmokeThat";
+	solution_1[25] = "";
+	solution_1[26] = NULL;
 
-	char** user_solution_1 = (*camelCaser)(".###Weed is not legal in USA.      So you'd bettter not smoke that.        .         ");
+	char** user_solution_1 = (*camelCaser)(".1\2:3[4]5{6}7'8\"9;10?11/12,13+14-15!16#17@18(19)20^21&22%23$ Weed is not legal in USA. So you had better not smoke that.        .ignore this");
 
 	if(cal_len_str_arr(user_solution_1) != cal_len_str_arr(solution_1)) {
 		(*destroy) (user_solution_1);
@@ -63,5 +81,15 @@ int test_camelCaser(char **(*camelCaser)(const char *),
 		}
 	curr_sentence++;
 	}
+	(*destroy)(user_solution_1);
+	free(solution_1);
+
+	//Test 2
+	char** solution_2 = (*camelCaser)(NULL);
+	if (solution_2 != NULL) {
+		return 0;
+	}
+	
+	//Test 3
     return 1;
 }

@@ -93,8 +93,9 @@ char **camel_caser(const char *input_str) {
 
 void destroy(char **result) {
 	int curr_sentence = 0;
-	while(result[++curr_sentence]) {
+	while(result[curr_sentence]) {
 		free(result[curr_sentence]);
+		curr_sentence++;
 	}
 	free(result);
 }
