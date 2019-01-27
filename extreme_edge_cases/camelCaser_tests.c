@@ -91,5 +91,67 @@ int test_camelCaser(char **(*camelCaser)(const char *),
 	}
 	
 	//Test 3
+	char input_3[63];
+	int j;
+	for(j = 1; j < 32; j++) {
+		input_3[j * 2 - 2] = j;
+		input_3[j * 2 - 1] = '.';
+	}
+	input_3[62] = 0;
+	char** user_solution_3 = (*camelCaser)(input_3);
+	char** solution_3 = malloc(32 * sizeof(char*));
+	solution_3[0] = "\x01";
+	solution_3[1] = "\x02";
+	solution_3[2] = "\x03";
+	solution_3[3] = "\x04";
+	solution_3[4] = "\x05";
+	solution_3[5] = "\x06";
+	solution_3[6] = "\a";
+	solution_3[7] = "\b";
+	solution_3[8] = "";
+	solution_3[9] = "";
+	solution_3[10] = "";
+	solution_3[11] = "";
+	solution_3[12] = "";
+	solution_3[13] = "\x0E";
+	solution_3[14] = "\x0F";
+	solution_3[15] = "\x10";
+	solution_3[16] = "\x11";
+	solution_3[17] = "\x12";
+	solution_3[18] = "\x13";
+	solution_3[19] = "\x14";
+	solution_3[20] = "\x15";
+	solution_3[21] = "\x16";
+	solution_3[22] = "\x17";
+	solution_3[23] = "\x18";
+	solution_3[24] = "\x19";
+	solution_3[25] = "\x1A";
+	solution_3[26] = "\x1B";
+	solution_3[27] = "\x1C";
+	solution_3[28] = "\x1D";
+	solution_3[29] = "\x1E";
+	solution_3[30] = "\x1F";
+	solution_3[31] = NULL;
+	
+	if(cal_len_str_arr(user_solution_3) != cal_len_str_arr(solution_3)) {
+		(*destroy) (user_solution_3);
+		free(solution_3);
+		return 0;
+	}//Test amount of sentences
+
+	curr_sentence = 0;
+	while(user_solution_3[curr_sentence]) {
+	printf("SOL:%d. %s\n",curr_sentence,  solution_3[curr_sentence]);
+	printf("USER:%d. %s\n",curr_sentence,  user_solution_3[curr_sentence]);	
+		if(strcmp(solution_3[curr_sentence], user_solution_3[curr_sentence])) {
+			(*destroy)(user_solution_3);
+			free(solution_3);
+			return 0;
+		}
+	curr_sentence++;
+	}
+	(*destroy)(user_solution_3);
+	free(solution_3);
+	
     return 1;
 }

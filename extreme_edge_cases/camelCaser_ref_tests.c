@@ -9,7 +9,19 @@
 
 int main() {
     // Enter the string you want to test with the reference here
-    char *input = ".1\2:3[4]5{6}7'8\"9;10?11/12,13+14-15!16#17@18(19)20^21&22%23$ Weed is not legal in USA. So you had better not smoke that.        .ignore this";
+    char input[63];
+
+    int j = 0;
+    for(j=1;j<32;j++){
+    	input[j*2-2]=j;
+    	input[j*2-1]='.';
+    }
+    input[62] = 0; 
+
+    /*char input[3];
+    input[0] = 0;
+    input[1] = '.';
+    input[2] = 0;*/
     // This function prints the reference implementation output on the terminal
     print_camelCaser(input);
 
