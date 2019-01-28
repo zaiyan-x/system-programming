@@ -439,6 +439,85 @@ int test_camelCaser(char **(*camelCaser)(const char *),
 	(*destroy)(user_solution_6);
 	free(solution_6);
 
+	//Test 7
+	char* input_7 = "1Hello       World     .";
+	char** user_solution_7 = (*camelCaser)(input_7);
+	char** solution_7 = malloc(2 * sizeof(char*));
+	solution_7[0] = "1helloWorld";
+	solution_7[1] = NULL;
+	if(cal_len_str_arr(user_solution_7) != cal_len_str_arr(solution_7)) {
+		(*destroy) (user_solution_7);
+		free(solution_6);
+		return 0;
+	}//Test amount of sentences
+
+	curr_sentence = 0;
+	while(user_solution_7[curr_sentence]) {
+		printf("SOL:%d. %s\n",curr_sentence,  solution_7[curr_sentence]);
+		printf("USER:%d. %s\n",curr_sentence,  user_solution_7[curr_sentence]);	
+		if(strcmp(solution_7[curr_sentence], user_solution_7[curr_sentence])) {
+			(*destroy)(user_solution_7);
+			free(solution_7);
+			return 0;
+		}
+		curr_sentence++;
+	}
+	(*destroy)(user_solution_7);
+	free(solution_7);
+
+
+	//Test 8
+	char* input_8 = "dEAL wItH ThIs Mother*";
+	char** user_solution_8 = (*camelCaser) (input_8);
+	char** solution_8 = malloc(2 * sizeof(char*));
+	solution_8[0] = "dealWithThisMother";
+	solution_8[1] = NULL;
+	if(cal_len_str_arr(user_solution_8) != cal_len_str_arr(solution_8)) {
+		(*destroy) (user_solution_8);
+		free(solution_8);
+		return 0;
+	}//Test amount of sentences
+
+	curr_sentence = 0;
+	while(user_solution_8[curr_sentence]) {
+		printf("SOL:%d. %s\n",curr_sentence,  solution_8[curr_sentence]);
+		printf("USER:%d. %s\n",curr_sentence,  user_solution_8[curr_sentence]);	
+		if(strcmp(solution_8[curr_sentence], user_solution_8[curr_sentence])) {
+			(*destroy)(user_solution_8);
+			free(solution_8);
+			return 0;
+		}
+		curr_sentence++;
+	}
+	(*destroy)(user_solution_8);
+	free(solution_8);
+
+
+	//Test 9
+	char* input_9 = "2HELLO WORLD     FUCK.";
+	char** user_solution_9 = (*camelCaser) (input_9);
+	char** solution_9 = malloc(2 * sizeof(char*));
+	solution_9[0] = "2helloWorldFuck";
+	solution_9[1] = NULL;
+	if(cal_len_str_arr(user_solution_9) != cal_len_str_arr(solution_9)) {
+		(*destroy) (user_solution_9);
+		free(solution_9);
+		return 0;
+	}//Test amount of sentences
+
+	curr_sentence = 0;
+	while(user_solution_9[curr_sentence]) {
+		printf("SOL:%d. %s\n",curr_sentence,  solution_9[curr_sentence]);
+		printf("USER:%d. %s\n",curr_sentence,  user_solution_9[curr_sentence]);	
+		if(strcmp(solution_9[curr_sentence], user_solution_9[curr_sentence])) {
+			(*destroy)(user_solution_9);
+			free(solution_9);
+			return 0;
+		}
+		curr_sentence++;
+	}
+	(*destroy)(user_solution_9);
+	free(solution_9);
 
 	return 1;
 }
