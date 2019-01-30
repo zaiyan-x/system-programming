@@ -134,6 +134,11 @@ void eight(int a) {
     for (i = 0; i < 10; i++)
         printf("%d ", values[i][i]);
     printf("\n");
+
+    for (i = 0; i < 10; i++) {
+	free(values[i]);
+    }	
+    free(values);
 }
 
 /**
