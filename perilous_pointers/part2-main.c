@@ -43,7 +43,7 @@ int main() {
     free(input_5);
 
     //6
-    char* input_6_2 = malloc(4 * sizeof(char));
+    char* input_6_2 = malloc(5 * sizeof(char));
     void* input_6_1 = input_6_2;
     strcpy(input_6_2, "000u");
     two_step(input_6_1, input_6_2);
@@ -55,7 +55,7 @@ int main() {
     free(input_7);
 
     //8
-    char* input_8 = malloc(4 * sizeof(char));
+    char* input_8 = malloc(5 * sizeof(char));
     strcpy(input_8, "02:B");
     step_step_step(input_8, input_8, input_8);
     free(input_8);
