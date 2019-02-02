@@ -190,6 +190,8 @@ void vector_reserve(vector *this, size_t n) {
 	if (new_capacity > old_capacity) {
 		new_capacity = get_new_capacity(n);
 		this->array = realloc(this->array, new_capacity * sizeof(void*));
+		this->capacity = new_capacity;
+		return;
 	} else {	
 		return;
 	}	
