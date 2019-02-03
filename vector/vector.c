@@ -113,9 +113,7 @@ void vector_destroy(vector *this) {
     assert(this);
     size_t i;
 	for (i = 0; i < this->size; i++) {
-		if (this->array[i] != NULL) {
-			(*this->destructor)(this->array[i]);
-		}
+		(*this->destructor)(this->array[i]);
 	}
 	free(this->array);
 	this->array = NULL;
@@ -244,7 +242,7 @@ void vector_push_back(vector *this, void *element) {
 	size_t new_size = this->size + 1;
 	size_t old_capacity = this->capacity;
 	if (new_size > old_capacity) {
-		vector_resize(this, new_size);
+		vector_reserve(this, new_size);
 	}
    	if (vector_empty(this)) {
 		this->array[0] = (*this->copy_constructor)(element);
@@ -272,9 +270,8 @@ void vector_insert(vector *this, size_t position, void *element) {
 	size_t old_capacity = vector_capacity(this);
 	size_t new_size = old_size + 1;
 	if (new_size > old_capacity) {
-		vector_resize(this, new_size);
+		vector_reserve(this, new_size);
 	}
-	vector_resize(this, new_size);
 	size_t i;
 	void* curr;
 	void* temp = this->array[position];

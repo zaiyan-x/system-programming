@@ -20,10 +20,12 @@ int main() {
 	for (iter = 0; iter < 1000; iter++) {
 		vector_push_back(test_vector, &a);
 	}	
-	vector_clear(test_vector);
+	vector_destroy(test_vector);
 	printf("TEST1 COMPLETE with SIZE: %zu and CAP %zu.\n", vector_size(test_vector), vector_capacity(test_vector));
 
 	// TEST 2	
+	test_vector = vector_create(int_copy_constructor, int_destructor, int_default_constructor);
+
 
 	return 0;
 }
