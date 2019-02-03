@@ -5,7 +5,7 @@
  
 #include "vector.h"
 #include <assert.h>
-
+#include <stdio.h>
 /**
  * 'INITIAL_CAPACITY' the initial size of the dynamically.
  */
@@ -116,7 +116,6 @@ void vector_destroy(vector *this) {
 		if (this->array[i] != NULL) {
 			(*this->destructor)(this->array[i]);
 		}
-		this->array[i] = NULL;
 	}
 	free(this->array);
 	this->array = NULL;
@@ -140,6 +139,7 @@ size_t vector_size(vector *this) {
 }
 
 void vector_resize(vector *this, size_t n) {
+	printf("Called Resize. Current size: %zu, and current capacity: %zu.\n", vector_size(this), vector_capacity(this));
 	assert(this);
 	size_t new_size = n;
 	size_t old_size = this->size;
@@ -168,6 +168,7 @@ void vector_resize(vector *this, size_t n) {
 
 	//update
 	this->size = new_size;
+	printf("Resize Completed: Current size: %zu, and current capacity: %zu.\n", vector_size(this), vector_capacity(this));
 	return;	
 }
 
