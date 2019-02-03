@@ -141,29 +141,30 @@ size_t vector_size(vector *this) {
 
 void vector_resize(vector *this, size_t n) {
 	assert(this);
-    if (this == NULL || n == this->size) { return; };
 	size_t new_size = n;
 	size_t old_size = this->size;
 	size_t old_capacity = this->capacity;
-    if (new_size > old_capacity) { //expand vector
+    if (new_size == old_size) { return; }
+	if (new_size > old_capacity) { //expand vector
 		size_t new_capacity = get_new_capacity(n);
 		this->array = realloc(this->array, new_capacity * sizeof(void*));
-		int i;
+		size_t i;
 		for (i = old_size; i < new_size; i++) {
 			this->array[i] = (*this->default_constructor)();
 		}
 		this->capacity = new_capacity;	
 	} else if (new_size < old_size) { //destroy items
-		int i;
+		size_t i;
 		for (i = new_size; i < old_size; i++) {
 			(*this->destructor)(this->array[i]);
 			this->array[i] = NULL;
 		}
 	} else {
-		int i;
+		size_t i;
 		for (i = old_size; i < new_size; i++) {
 			this->array[i] = (*this->default_constructor)();
 		}
+	}
 
 	//update
 	this->size = new_size;
@@ -200,54 +201,119 @@ void vector_reserve(vector *this, size_t n) {
 void **vector_at(vector *this, size_t position) {
     assert(this);
     // your code here
+	assert(position < this->size);
+	
+	return(&this->array[position]);
     return NULL;
 }
 
 void vector_set(vector *this, size_t position, void *element) {
     assert(this);
     // your code here
+	assert(position < this->size);
+	(*this->destructor)(this->array[position]);
+	this->array[position] = (*this->copy_constructor)(element);
+	return;
 }
 
 void *vector_get(vector *this, size_t position) {
     assert(this);
     // your code here
-    return NULL;
+	assert(position < this->size);
+
+    return this->array[position];
 }
 
 void **vector_front(vector *this) {
     assert(this);
     // your code here
-    return NULL;
+	assert(vector_empty(this) == false);
+    return (this->array);
 }
 
 void **vector_back(vector *this) {
     // your code here
-    return NULL;
+    assert(this);
+	assert(vector_empty(this) == false);
+	return (&this->array[this->size - 1]);
 }
 
 void vector_push_back(vector *this, void *element) {
     assert(this);
-    // your code here
+	size_t new_size = this->size + 1;
+	size_t old_capacity = this->capacity;
+	if (new_size > old_capacity) {
+		vector_resize(this, new_size);
+	}
+   	if (vector_empty(this)) {
+		this->array[0] = (*this->copy_constructor)(element);
+	} else {
+		this->array[new_size - 1] = (*this->copy_constructor)(element);
+	}
+	this->size++;
+	return;
 }
 
 void vector_pop_back(vector *this) {
     assert(this);
-    // your code here
+	size_t old_size = this->size;
+    if(vector_empty(this)) { return; }
+	(*this->destructor)(this->array[old_size - 1]);
+	this->size--;
+	return;
 }
 
 void vector_insert(vector *this, size_t position, void *element) {
     assert(this);
     // your code here
+	size_t old_size = vector_size(this);
+	assert(position <= old_size);
+	size_t old_capacity = vector_capacity(this);
+	size_t new_size = old_size + 1;
+	if (new_size > old_capacity) {
+		vector_resize(this, new_size);
+	}
+	vector_resize(this, new_size);
+	size_t i;
+	void* curr;
+	void* temp = this->array[position];
+	for(i = position + 1; i < new_size; i++) {
+		curr = this->array[i];
+		this->array[i] = temp;
+		temp = curr;
+	}
+	this->array[position] = (*this->copy_constructor)(element);	
+	this->size = new_size;
+	return;
 }
 
 void vector_erase(vector *this, size_t position) {
     assert(this);
     assert(position < vector_size(this));
     // your code here
+	size_t old_size = vector_size(this);
+	size_t new_size = vector_size(this) - 1;
+	size_t i;
+	(*this->destructor)(this->array[position]);
+	for (i = position; i < old_size - 1; i++) {
+		this->array[i] = this->array[i + 1];
+	}
+	this->array[old_size] = NULL;
+	this->size = new_size;
+	return;
 }
 
 void vector_clear(vector *this) {
     // your code here
+	size_t i;
+	size_t new_size = 0;
+	size_t old_size = vector_size(this);
+	for (i = 0; i < old_size; i++) {
+		(*this->destructor)(this->array[i]);
+		this->array[i] = NULL;
+	}	
+	this->size = new_size;
+	return;
 }
 
 // The following is code generated:
