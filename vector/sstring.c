@@ -56,7 +56,27 @@ int sstring_append(sstring *this, sstring *addition) {
 
 vector *sstring_split(sstring *this, char delimiter) {
     // your code goes here
-    return NULL;
+	vector* result = vector_create(string_copy_constructor, string_destructor, string_default_constructor);
+	bool more_del = false;
+	size_t i;
+	char temp_char;
+	sstring* temp = cstr_to_sstring("");
+	for (i = 0; i < vector_size(this->str_vec); i++) {
+		if ((*(char*)vector_get(this->str_vec, i)) == delimiter && !more_del) {
+			vector_push_back(result, sstring_to_cstr(temp));
+			sstring_destroy(temp);
+			more_del = true;
+			temp = cstr_to_sstring("");
+		} else if ((*(char*)vector_get(this->str_vec, i)) == delimiter && more_del) {
+			more_del = true;
+			vector_push_back(result, "");
+		} else {
+			more_del = false;
+			temp_char = *(char*)vector_get(this->str_vec, i);
+			sstring_append(temp, cstr_to_sstring(&temp_char));
+		}
+	}
+    return result;
 }
 
 int sstring_substitute(sstring *this, size_t offset, char *target,
@@ -72,4 +92,9 @@ char *sstring_slice(sstring *this, int start, int end) {
 
 void sstring_destroy(sstring *this) {
     // your code goes here
+	vector_destroy(this->str_vec);
+	this->str_vec = NULL;
+	free(this);
+	this = NULL;
+	return;
 }
