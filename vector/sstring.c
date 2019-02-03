@@ -57,13 +57,15 @@ int sstring_append(sstring *this, sstring *addition) {
 vector *sstring_split(sstring *this, char delimiter) {
     // your code goes here
 	vector* result = vector_create(string_copy_constructor, string_destructor, string_default_constructor);
-	bool more_del = false;
+	bool more_del = true;
 	size_t i;
-	char temp_char;
+	char temp_char[2];
 	sstring* temp = cstr_to_sstring("");
 	for (i = 0; i < vector_size(this->str_vec); i++) {
 		if ((*(char*)vector_get(this->str_vec, i)) == delimiter && !more_del) {
-			vector_push_back(result, sstring_to_cstr(temp));
+			char* str_to_push = sstring_to_cstr(temp);
+			vector_push_back(result, str_to_push);
+			free(str_to_push);
 			sstring_destroy(temp);
 			more_del = true;
 			temp = cstr_to_sstring("");
@@ -72,10 +74,17 @@ vector *sstring_split(sstring *this, char delimiter) {
 			vector_push_back(result, "");
 		} else {
 			more_del = false;
-			temp_char = *(char*)vector_get(this->str_vec, i);
-			sstring_append(temp, cstr_to_sstring(&temp_char));
+			temp_char[0] = *(char*)vector_get(this->str_vec, i);
+			temp_char[1] = '\0';
+			sstring* sstr_to_append = cstr_to_sstring(temp_char);
+			sstring_append(temp, sstr_to_append);
+			sstring_destroy(sstr_to_append);
 		}
 	}
+	char* str_to_push = sstring_to_cstr(temp);
+	vector_push_back(result, str_to_push);
+	free(str_to_push);
+	sstring_destroy(temp);
     return result;
 }
 
