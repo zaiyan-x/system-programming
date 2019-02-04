@@ -140,24 +140,15 @@ void vector_resize(vector *this, size_t n) {
 	assert(this);
 	size_t new_size = n;
 	size_t old_size = this->size;
-	size_t old_capacity = this->capacity;
 	if (new_size == old_size) { return; }
-	if (new_size > old_capacity) { //expand vector
-		size_t new_capacity = get_new_capacity(n);
-		this->array = realloc(this->array, new_capacity * sizeof(void*));
-		size_t i;
-		for (i = old_size; i < new_size; i++) {
-			this->array[i] = (*this->default_constructor)();
-		}
-		this->capacity = new_capacity;	
-	} else if (new_size < old_size) { //destroy items
-		size_t i;
+	size_t i;
+	if (new_size < old_size) { //expand vector}
 		for (i = new_size; i < old_size; i++) {
 			(*this->destructor)(this->array[i]);
 			this->array[i] = NULL;
 		}
 	} else {
-		size_t i;
+		vector_reserve(this, new_size);
 		for (i = old_size; i < new_size; i++) {
 			this->array[i] = (*this->default_constructor)();
 		}

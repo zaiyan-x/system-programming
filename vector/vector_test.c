@@ -11,22 +11,13 @@
 
 // Test your vector here
 int main() { 
-	// Initialize
-	vector* test_vector = vector_create(int_copy_constructor, int_destructor, int_default_constructor);
-
-	// TEST 1
-	int iter;
-	int a = 10;
-	for (iter = 0; iter < 1000; iter++) {
-		vector_push_back(test_vector, &a);
-	}	
-	vector_destroy(test_vector);
-	printf("TEST1 COMPLETE with SIZE: %zu and CAP %zu.\n", vector_size(test_vector), vector_capacity(test_vector));
-
-	// TEST 2	
-	test_vector = vector_create(int_copy_constructor, int_destructor, int_default_constructor);
-
-
-	return 0;
+	vector* test = vector_create(NULL, NULL, NULL);
+	vector_resize(test, 13);
+	vector_resize(test, 2);
+	size_t cap = vector_capacity(test);
+	size_t size = vector_size(test);
+	printf("new cap: %zu\n", cap);
+	printf("new size: %zu\n", size);
+	vector_destroy(test);
 }
 
