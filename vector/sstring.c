@@ -91,7 +91,81 @@ vector *sstring_split(sstring *this, char delimiter) {
 int sstring_substitute(sstring *this, size_t offset, char *target,
                        char *substitution) {
     // your code goes here
-    return -1;
+	size_t target_length = strlen(target);
+	size_t sub_length = strlen(substitution);
+	size_t new_size = vector_size(this->str_vec) - target_length + sub_length;
+	vector_reserve(this->str_vec, new_size);
+
+	char curr;
+	bool found = false;
+	bool engaged = false;
+	
+	size_t i;
+	size_t j = vector_size(this->str_vec);
+	size_t k = 0;
+
+	size_t target_end = strlen(target) - 1;
+	size_t found_position = 0;
+
+	for (i = offset; i < j; i++) {
+		curr = *(char*) vector_get(this->str_vec, i);
+		if (engaged == false) {
+			if (curr != target[0]) {
+				continue;
+			} else {
+				engaged = true;
+				k++;
+			}
+		} else {
+			if (curr != target[k]) {
+				engaged = false;
+				k = 0;
+			} else {
+				if (k == target_end) {
+					found = true;
+					found_position = i;
+					break;
+				} else if (k < target_end) {
+					k++;
+				} else {
+				}
+			}
+		}
+	}
+
+	if (found == false) {
+		return (int) found;
+	}
+	//Replace	
+	size_t start_position = found_position - target_length + 1; 
+	size_t end_position;
+	size_t fix_position;	
+	if (sub_length >= target_length) { // extend
+		end_position = start_position + sub_length - 1;
+		j = target_length;
+	} else {
+		end_position = start_position + target_length - 1;
+		j = sub_length;
+		fix_position = start_position + sub_length;
+	}
+	
+	k = 0;
+
+	for (i = start_position; i <= end_position; i++) {
+		if (j > 0) {
+			vector_set(this->str_vec, i, &substitution[k]);
+			k++;
+			j--;
+		} else {
+			if (sub_length < target_length) {
+				vector_erase(this->str_vec, fix_position);
+			} else {
+				vector_insert(this->str_vec, i, &substitution[k]);
+				k++;
+			}
+		}
+	}
+    return (int) found;
 }
 
 char *sstring_slice(sstring *this, int start, int end) {
