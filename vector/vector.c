@@ -137,12 +137,11 @@ size_t vector_size(vector *this) {
 }
 
 void vector_resize(vector *this, size_t n) {
-	printf("Called Resize. Current size: %zu, and current capacity: %zu.\n", vector_size(this), vector_capacity(this));
 	assert(this);
 	size_t new_size = n;
 	size_t old_size = this->size;
 	size_t old_capacity = this->capacity;
-    if (new_size == old_size) { return; }
+	if (new_size == old_size) { return; }
 	if (new_size > old_capacity) { //expand vector
 		size_t new_capacity = get_new_capacity(n);
 		this->array = realloc(this->array, new_capacity * sizeof(void*));
@@ -166,7 +165,6 @@ void vector_resize(vector *this, size_t n) {
 
 	//update
 	this->size = new_size;
-	printf("Resize Completed: Current size: %zu, and current capacity: %zu.\n", vector_size(this), vector_capacity(this));
 	return;	
 }
 
