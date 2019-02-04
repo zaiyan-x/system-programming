@@ -170,7 +170,21 @@ int sstring_substitute(sstring *this, size_t offset, char *target,
 
 char *sstring_slice(sstring *this, int start, int end) {
     // your code goes here
-    return NULL;
+	sstring* temp = cstr_to_sstring("");
+	size_t start_position = (size_t) start;
+	size_t end_position = (size_t) end;
+	size_t i;
+	char curr_char[2];
+	for (i = start_position; i < end_position; i++) {
+		curr_char[0] = *(char*) vector_get(this->str_vec, i);
+		curr_char[1] = '\0';
+		sstring* sstr_to_append = cstr_to_sstring(curr_char);
+		sstring_append(temp, sstr_to_append);
+		sstring_destroy(sstr_to_append);
+	}
+	char* result = sstring_to_cstr(temp);
+	sstring_destroy(temp);
+    return result;
 }
 
 void sstring_destroy(sstring *this) {

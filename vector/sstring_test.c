@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
 	sstring_destroy(input_5);
 	
 	// TEST 6
-	puts("TEST6:I love ||||||, |||||| is my love");
+	puts("TEST6:I love ||||||, |||||| is my love.");
 	sstring* input_6 = cstr_to_sstring("I love ||||||, |||||| is my love.");
 	sstring_substitute(input_6, 0, "||||||", "food");
 	sstring_substitute(input_6, 0, "||||||", "food");
@@ -76,5 +76,13 @@ int main(int argc, char *argv[]) {
 	puts(test_6_return);
 	free(test_6_return);
 	sstring_destroy(input_6);
-	return 0;
+	
+
+	// TEST 7
+	puts("TEST7:I love foooooooooood, duoduo is my love.");
+	sstring* input_7 = cstr_to_sstring("I love foooooooooood, duoduo is my love.");
+	char* test_7_return = sstring_slice(input_7, 22, 28);
+	puts(test_7_return);
+	sstring_destroy(input_7);
+	free(test_7_return);
 }
