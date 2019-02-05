@@ -62,7 +62,7 @@ bool arg_validator(int argc, char** argv) {
 					continue;
 				}
 			}
-			if (count_per >= 1 || count_equ != 1) {
+			if (count_per > 1 || count_equ != 1) {
 				return false;
 			}
 		} else {
