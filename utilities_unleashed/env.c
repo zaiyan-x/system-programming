@@ -117,7 +117,6 @@ int main(int argc, char *argv[]) {
 			}
 		}
 		char* cmd = argv[i + 1];
-		printf("%s", cmd);
 		char** cmd_arg = argv + i + 1;
 		execvp(cmd, cmd_arg);
 		print_exec_failed();
