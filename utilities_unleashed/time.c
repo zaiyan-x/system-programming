@@ -30,19 +30,19 @@ int main(int argc, char *argv[]) {
 		print_exec_failed();
 		exit(1);
 	} else { //parent case
-		struct timespec* tp = malloc(sizeof(struct timespec));
-		int start = clock_gettime(CLOCK_MONOTONIC, tp);
-		double start_time = tp->tv_sec;	
+		struct timespec tp_start;
+		struct timespec tp_end;
+		int start = clock_gettime(CLOCK_MONOTONIC, &tp_start);
 		waitpid(pid, &status, 0);
-		int stop = clock_gettime(CLOCK_MONOTONIC, tp);
-		double stop_time = tp->tv_sec;
+		int stop = clock_gettime(CLOCK_MONOTONIC, &tp_end);
 		if (start == -1 || stop == -1) {
 			print_time_usage();
 			exit(1);
 		}
-		double duration = stop_time - start_time;
-		display_results(argv, duration);
-		free(tp);
+		double duration = tp_end.tv_sec - tp_start.tv_sec + (tp_end.tv_nsec - tp_start.tv_nsec) / 1000000000.0;
+		if (!status) {
+			 display_results(argv, duration);
+		}
 	}
 
 	return 0;
