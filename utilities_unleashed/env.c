@@ -1,6 +1,7 @@
 /**
  * Utilities Unleashed Lab
  * CS 241 - Spring 2019
+ * Collab with Eric Wang - wcwang2 :)
  */
 #include <stdio.h>
 #include <string.h>
