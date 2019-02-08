@@ -11,9 +11,15 @@
 #include "shell.h"
 #include "vector.h"
 
-#define terminate_shell shell_cleaner(); return 0;
+#define terminate_shell() shell_cleaner(); return 0;
+#define prompt_cleaner(a, b) free(a); free(b); a = NULL; b = NULL;
 extern char * optarg;
 extern int optind, opterr, optopt;
+
+char* HISTORY_FILE = NULL;
+char* COMMAND_FILE = NULL;
+char* HISTORY_FILE_PATH = NULL;
+char* COMMAND_FILE_PATH = NULL;
 
 typedef struct process {
     char *command;
@@ -22,9 +28,12 @@ typedef struct process {
 
 
 
-bool arg_validator(int argc, char** argv) {
-
-	return true;
+bool argc_validator(int argc) {
+	if (argc == 1 || argc == 3 || argc == 5) {
+		return true;
+	} else {
+		return false;
+	}
 }
 
 
@@ -36,11 +45,20 @@ void signal_handler(int signal) {
 void shell_cleaner() {
 	return;
 }
+
+void option_parser(int argc, char** argv) {
+
+}
 	
 int shell(int argc, char *argv[]) {
-	if (!arg_validator(argc, argv)) {
-		terminate_shell
+	if (!argc_validator(argc)) {
+		print_usage();
+		terminate_shell();
 	}
+	
+	//expecting signal
+	signal(SIGINT, signal_handler);
+	signal(SIGCHLD, signal_handler);
 
 	pid_t pid = getpid();
 
@@ -53,8 +71,14 @@ int shell(int argc, char *argv[]) {
 			print_prompt(cwd, pid);
 		}
 		if (getline(&cmd, &cmd_size, stdin) == -1) {
-			terminate_shell			
+			print_usage();
+			terminate_shell();	
 		}
+
+
+
+		//CLEAN UP - ready for next prompt
+		prompt_cleaner(cmd, cwd);
 	}
 	return 0;
 }
