@@ -12,7 +12,7 @@
 #include "shell.h"
 #include "vector.h"
 
-#define terminate_shell() shell_cleaner(); return 0;
+#define terminate_shell() shell_cleaner(); write_log(); return 0;
 #define prompt_cleaner(a, b) free(a); free(b); a = NULL; b = NULL;
 extern char * optarg;
 extern int optind, opterr, optopt;
@@ -129,13 +129,17 @@ bool log_cmd(char* cmd) {
 	return false;
 }
 
-void write_loc() {
+void write_log() {
 	char* cmd = NULL;
 	if (HISTORY_FILE_POINTER != NULL) {
-		VECTOR_FOR_EACH(LOG, cmd, {
-			fprintf(HISTORY_FILE_POINTER, "%s\n", cmd);
-		});
+		void** _it = vector_begin(LOG);
+		void** _end = vector_end(LOG);
+		for( ; _it != _end; ++_it) {
+			cmd = *_it;
+			fprintf(HISTORY_FILE_POINTER, "%s\n", (char*) cmd);
+		}
 	}
+	return;
 }
 
 void exec_cd(char* cmd) {
@@ -216,7 +220,12 @@ bool file_setup() {
 }
 
 bool log_setup() {
-	LOG = string_vector_create();	
+	LOG = string_vector_create();
+	if (LOG != NULL) {
+		return true;
+	} else {
+		return false;
+	}	
 }
 			
 	
@@ -274,6 +283,7 @@ int shell(int argc, char *argv[]) {
 		if (logic_operator == -1) {
 			print_invalid_command(cmd);			
 		} else {
+			log_cmd(cmd);
 			command_dispatcher(cmd, logic_operator);
 		}
 
