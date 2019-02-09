@@ -21,6 +21,8 @@ static char* HISTORY_FILE = NULL;
 static char* COMMAND_FILE = NULL;
 static char* HISTORY_PATH = NULL;
 static char* COMMAND_PATH = NULL;
+static FILE* HISTORY_FILE_POINTER = NULL;
+static FILE* COMMAND_FILE_POINTER = NULL;
 
 typedef struct process {
     char *command;
@@ -71,7 +73,7 @@ void shell_cleaner() {
 
 bool option_setup(int argc, char** argv) {
 	int opt;
-	while ((opt = getopt(argc, argv, "h;f:")) != -1) {
+	while ((opt = getopt(argc, argv, "h:f:")) != -1) {
 		if (opt == 'h') {
 			if (HISTORY_FILE == NULL && optarg != NULL) {
 				HISTORY_FILE = strdup(optarg);
@@ -94,12 +96,29 @@ bool option_setup(int argc, char** argv) {
 void command_dispatcher(char* cmd) {
 
 }
-
-void file_setup() {
+bool file_setup() {
 	if (HISTORY_FILE != NULL) {
 		if (access(HISTORY_FILE, R_OK | W_OK) != -1) {
 			HISTORY_PATH = (*get_full_path)(HISTORY_FILE);
-			//TODO	
+			HISTORY_FILE_POINTER = fopen(HISTORY_PATH, "a+");
+		} else {
+			print_history_file_error();
+			HISTORY_FILE_POINTER = fopen(HISTORY_FILE, "a+");
+			HISTORY_PATH = (*get_full_path)(HISTORY_FILE);
+		} 
+	}
+	if (COMMAND_FILE != NULL) {
+		if (access(COMMAND_FILE, R_OK) != -1) {
+			COMMAND_PATH = (*get_full_path)(COMMAND_FILE);
+			COMMAND_FILE_POINTER = fopen(COMMAND_PATH, "r");
+		} else {
+			print_script_file_error();
+			return false;
+		}
+	}
+	return true;
+}
+			
 	
 int shell(int argc, char *argv[]) {
 	if (!argc_validator(argc)) {
@@ -116,8 +135,10 @@ int shell(int argc, char *argv[]) {
 		print_usage();
 		terminate_shell();
 	}	
-	puts(HISTORY_FILE);
-	puts(COMMAND_FILE);	
+	//setup files
+	if (file_setup() == false) {
+		terminate_shell();
+	}
 	pid_t pid = getpid();
 
 	char* cmd = NULL;
@@ -136,7 +157,7 @@ int shell(int argc, char *argv[]) {
 		cmd[strlen(cmd) - 1] = '\0';
 	
 		//Process commands		
-		command_processor(cmd);
+		command_dispatcher(cmd);
 
 		//CLEAN UP - ready for next prompt
 		prompt_cleaner(cmd, cwd);
