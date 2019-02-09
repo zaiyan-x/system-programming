@@ -122,11 +122,20 @@ bool option_setup(int argc, char** argv) {
 }
 
 bool log_cmd(char* cmd) {
-	if (HISTORY_FILE_POINTER != NULL) {
-		fprintf(HISTORY_FILE_POINTER, "%s\n", cmd);
+	if (LOG != NULL) {
+		vector_push_back(LOG, cmd);
 		return true;
 	}
 	return false;
+}
+
+void write_loc() {
+	char* cmd = NULL;
+	if (HISTORY_FILE_POINTER != NULL) {
+		VECTOR_FOR_EACH(LOG, cmd, {
+			fprintf(HISTORY_FILE_POINTER, "%s\n", cmd);
+		});
+	}
 }
 
 void exec_cd(char* cmd) {
@@ -141,7 +150,6 @@ void exec_cd(char* cmd) {
 	if (chdir(directory)) {
 		print_no_directory(directory);
 	}
-	log_cmd(cmd);
 }
 
 void command_dispatcher(char* cmd, int logic_operator) {
@@ -272,5 +280,5 @@ int shell(int argc, char *argv[]) {
 		//CLEAN UP - ready for next prompt
 		prompt_cleaner(cmd, cwd);
 	}
-	return 0;
+	exit(0);
 }
