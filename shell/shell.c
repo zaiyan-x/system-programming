@@ -119,15 +119,54 @@ bool option_setup(int argc, char** argv) {
 	return true;
 }
 
+
+
+void exec_cd(char* cmd) {
+	size_t cmd_len = strlen(cmd);
+	if (cmd_len <= 3) {
+		print_no_directory("");
+		return;
+	}
+
+	char* directory = cmd + 3;
+
+	if (chdir(directory)) {
+		//TODO ADD log
+		print_no_directory(directory);
+	}
+}
+
 void command_dispatcher(char* cmd, int logic_operator) {
 	size_t cmd_len = strlen(cmd);
 	if (cmd_len == 0) {
 		return;
 	}
-	if (logic
-	char* and_pos = strstr(cmd, "&&");
-	char* or_pos = strstr(cmd, "||");
-	char* semi_col_pos = strstr(cmd, ";");
+	if (logic_operator == 0) { // NO LOGIC OPERATOR
+		if (cmd_len > 1) {
+			if (cmd[0] == 'c' && cmd[1] == 'd') {
+				exec_cd(cmd);
+			}
+		} else {
+			if (cmd[0] == '!') {
+				
+			}
+			if (cmd[0] == '#') {
+			}
+		}			
+	} else if (logic_operator == 1) { // AND
+		//char* and_pos = strstr(cmd, "&&");
+
+
+	} else if (logic_operator == 2) { // OR
+		//char* or_pos = strstr(cmd, "&&");
+
+
+	} else if (logic_operator == 3) { // SEMI COLON
+		//char* semi_col_pos = strstr(cmd, ";");
+
+
+	} else { //TODO DO nothing
+	}
 }
 bool file_setup() {
 	if (HISTORY_FILE != NULL) {
