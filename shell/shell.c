@@ -134,14 +134,14 @@ bool log_cmd(char* cmd) {
 	if (LOG != NULL) {
 		//+1 for NUL Byte and +1 for adding newline char
 		size_t cmd_len = strlen(cmd);
-		char cmd_to_push[cmd_len + 1 + 1];
+		char cmd_to_push[cmd_len + 1];
 		strcpy(cmd_to_push, cmd);
-
+		
 		//FIX NUL Byte and newline
 		cmd_to_push[cmd_len] = '\n';
 		cmd_to_push[cmd_len + 1] = '\0';
-
-		vector_push_back(LOG, cmd);
+	
+		vector_push_back(LOG, cmd_to_push);
 		return true;
 	}
 	return false;
@@ -157,7 +157,7 @@ void write_log() {
 		void** _end = vector_end(LOG);
 		for( ; _it != _end; ++_it) {
 			cmd = *_it;
-			fprintf(HISTORY_FILE_POINTER, "%s\n", (char*) cmd);
+			fprintf(HISTORY_FILE_POINTER, "%s", (char*) cmd);
 		}
 	}
 	vector_clear(LOG);
@@ -196,6 +196,7 @@ void exec_print_history() {
 	//!history is not stored in history
 	if (H_FLAG) {
 		write_log();
+		fseek(HISTORY_FILE_POINTER, 0, SEEK_SET);
 		char cmd_line[1024];
 		size_t cmd_line_number = 0;
 		while (fgets(cmd_line, sizeof(cmd_line), HISTORY_FILE_POINTER)) {
@@ -204,7 +205,8 @@ void exec_print_history() {
 		}
 	} else {
 		print_current_shell_session_log();
-	}		
+	}
+	return;	
 }
 
 void command_dispatcher(char* cmd, int logic_operator) {
@@ -217,7 +219,6 @@ void command_dispatcher(char* cmd, int logic_operator) {
 			if (cmd[0] == 'c' && cmd[1] == 'd') {
 				exec_cd(cmd);
 			}
-		} else {
 			if (cmd[0] == '!') {
 				if (strstr(cmd, "history")) {
 					exec_print_history();
@@ -324,8 +325,9 @@ int shell(int argc, char *argv[]) {
 			prompt_cleaner(cmd, cwd);
 			terminate_shell();	
 		}
-		//Change the newline char to NUL Char
-		cmd[strlen(cmd) - 1] = '\0';
+		
+		//Change the newline char to NUL char	
+		cmd[strlen(cmd) - 1] = '\0';	
 	
 		//Validate cmd
 		//0: NO Logic Operator
