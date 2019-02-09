@@ -39,7 +39,36 @@ bool argc_validator(int argc) {
 	}
 }
 
-
+int cmd_validator(char* cmd) {
+	char* and_pos = strstr(cmd, "&&");
+	char* or_pos = strstr(cmd, "||");
+	char* semi_col_pos = strstr(cmd, ";");
+	if (and_pos != NULL) {
+		if (or_pos != NULL || semi_col_pos != NULL) {
+			print_invalid_command(cmd);
+			return -1;
+		} else {
+			return 1;
+		}
+	}
+	if (or_pos != NULL) {
+		if (and_pos != NULL || semi_col_pos != NULL) {
+			print_invalid_command(cmd);
+			return -1;
+		} else {
+			return 2;
+		}
+	}
+	if (semi_col_pos != NULL) {
+		if (and_pos != NULL || or_pos != NULL) {
+			print_invalid_command(cmd);
+			return -1;
+		} else {
+			return 3;
+		}
+	}
+	return 0;
+}
 
 void signal_handler(int signal) {
 	if (signal == SIGINT) {
@@ -94,7 +123,13 @@ bool option_setup(int argc, char** argv) {
 }
 
 void command_dispatcher(char* cmd) {
-
+	size_t cmd_len = strlen(cmd);
+	if (cmd_len == 0) {
+		return;
+	}
+	char* and_pos = strstr(cmd, "&&");
+	char* or_pos = strstr(cmd, "||");
+	char* semi_col_pos = strstr(cmd, ";");
 }
 bool file_setup() {
 	if (HISTORY_FILE != NULL) {
@@ -151,11 +186,20 @@ int shell(int argc, char *argv[]) {
 		}
 		if (getline(&cmd, &cmd_size, stdin) == -1) {
 			print_usage();
+			prompt_cleaner(cmd, cwd);
 			terminate_shell();	
 		}
 		//Change the newline char to NUL Char
 		cmd[strlen(cmd) - 1] = '\0';
 	
+		//Validate cmd
+		//0: NO Logic Operator
+		//1: 
+		if (cmd_validator(cmd) == false) {
+			prompt_cleaner(cmd, cwd);
+			continue;
+		}
+
 		//Process commands		
 		command_dispatcher(cmd);
 
