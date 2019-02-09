@@ -26,6 +26,9 @@ static FILE* COMMAND_FILE_POINTER = NULL;
 
 static vector* LOG = NULL;
 static bool NO_FLAG = false;
+static bool H_FLAG = false;
+static bool F_FLAG = false;
+
 typedef struct process {
     char *command;
     pid_t pid;
@@ -107,12 +110,14 @@ bool option_setup(int argc, char** argv) {
 	int opt;
 	while ((opt = getopt(argc, argv, "h:f:")) != -1) {
 		if (opt == 'h') {
+			H_FLAG = true;
 			if (HISTORY_FILE == NULL && optarg != NULL) {
 				HISTORY_FILE = strdup(optarg);
 			} else {
 				return false;
 			}
 		} else if (opt == 'f') {
+			F_FLAG = true;
 			if (COMMAND_FILE == NULL && optarg != NULL) {
 				COMMAND_FILE = strdup(optarg);
 			} else {
@@ -127,6 +132,15 @@ bool option_setup(int argc, char** argv) {
 
 bool log_cmd(char* cmd) {
 	if (LOG != NULL) {
+		//+1 for NUL Byte and +1 for adding newline char
+		size_t cmd_len = strlen(cmd);
+		char cmd_to_push[cmd_len + 1 + 1];
+		strcpy(cmd_to_push, cmd);
+
+		//FIX NUL Byte and newline
+		cmd_to_push[cmd_len] = '\n';
+		cmd_to_push[cmd_len + 1] = '\0';
+
 		vector_push_back(LOG, cmd);
 		return true;
 	}
@@ -134,6 +148,9 @@ bool log_cmd(char* cmd) {
 }
 
 void write_log() {
+	if (H_FLAG == false) {
+		return;
+	}
 	char* cmd = NULL;
 	if (HISTORY_FILE_POINTER != NULL) {
 		void** _it = vector_begin(LOG);
@@ -143,10 +160,12 @@ void write_log() {
 			fprintf(HISTORY_FILE_POINTER, "%s\n", (char*) cmd);
 		}
 	}
+	vector_clear(LOG);
 	return;
 }
 
 void exec_cd(char* cmd) {
+	log_cmd(cmd);
 	size_t cmd_len = strlen(cmd);
 	if (cmd_len <= 3) {
 		print_no_directory("");
@@ -158,6 +177,34 @@ void exec_cd(char* cmd) {
 	if (chdir(directory)) {
 		print_no_directory(directory);
 	}
+}
+
+void print_current_shell_session_log() {
+	char* cmd = NULL;
+	void** _it = vector_begin(LOG);
+	void** _end = vector_end(LOG);
+	size_t cmd_line_number = 0;
+	for( ; _it != _end; ++_it) {
+		cmd = *_it;
+		printf("%zu\t%s", cmd_line_number, (char*) cmd);
+		cmd_line_number++;
+	}
+	return;
+}
+
+void exec_print_history() {
+	//!history is not stored in history
+	if (H_FLAG) {
+		write_log();
+		char cmd_line[1024];
+		size_t cmd_line_number = 0;
+		while (fgets(cmd_line, sizeof(cmd_line), HISTORY_FILE_POINTER)) {
+			printf("%zu\t%s", cmd_line_number, cmd_line);
+			cmd_line_number++;
+		}
+	} else {
+		print_current_shell_session_log();
+	}		
 }
 
 void command_dispatcher(char* cmd, int logic_operator) {
@@ -172,7 +219,9 @@ void command_dispatcher(char* cmd, int logic_operator) {
 			}
 		} else {
 			if (cmd[0] == '!') {
-				
+				if (strstr(cmd, "history")) {
+					exec_print_history();
+				}				
 			}
 			if (cmd[0] == '#') {
 			}
@@ -290,7 +339,6 @@ int shell(int argc, char *argv[]) {
 		if (logic_operator == -1) {
 			print_invalid_command(cmd);			
 		} else {
-			log_cmd(cmd);
 			command_dispatcher(cmd, logic_operator);
 		}
 
