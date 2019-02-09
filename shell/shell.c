@@ -12,7 +12,7 @@
 #include "shell.h"
 #include "vector.h"
 
-#define terminate_shell() shell_cleaner(); write_log(); return 0;
+#define terminate_shell() write_log(); shell_cleaner(); return 0;
 #define prompt_cleaner(a, b) free(a); free(b); a = NULL; b = NULL;
 extern char * optarg;
 extern int optind, opterr, optopt;
@@ -95,6 +95,10 @@ void shell_cleaner() {
 	if (COMMAND_PATH) {
 		free(COMMAND_PATH);
 		COMMAND_PATH = NULL;
+	}
+	if (LOG) {
+		free(LOG);
+		LOG = NULL;
 	}
 	return;
 }
@@ -253,6 +257,9 @@ int shell(int argc, char *argv[]) {
 		terminate_shell();
 		}
 	}
+
+	//Get ready to prompt
+	log_setup();	
 	pid_t pid = getpid();
 
 	char* cmd = NULL;
