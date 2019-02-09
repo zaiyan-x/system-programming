@@ -24,6 +24,8 @@ static char* COMMAND_PATH = NULL;
 static FILE* HISTORY_FILE_POINTER = NULL;
 static FILE* COMMAND_FILE_POINTER = NULL;
 
+static vector* LOG = NULL;
+static bool NO_FLAG = false;
 typedef struct process {
     char *command;
     pid_t pid;
@@ -119,7 +121,13 @@ bool option_setup(int argc, char** argv) {
 	return true;
 }
 
-
+bool log_cmd(char* cmd) {
+	if (HISTORY_FILE_POINTER != NULL) {
+		fprintf(HISTORY_FILE_POINTER, "%s\n", cmd);
+		return true;
+	}
+	return false;
+}
 
 void exec_cd(char* cmd) {
 	size_t cmd_len = strlen(cmd);
@@ -131,9 +139,9 @@ void exec_cd(char* cmd) {
 	char* directory = cmd + 3;
 
 	if (chdir(directory)) {
-		//TODO ADD log
 		print_no_directory(directory);
 	}
+	log_cmd(cmd);
 }
 
 void command_dispatcher(char* cmd, int logic_operator) {
@@ -177,7 +185,11 @@ bool file_setup() {
 			print_history_file_error();
 			HISTORY_FILE_POINTER = fopen(HISTORY_FILE, "a+");
 			HISTORY_PATH = (*get_full_path)(HISTORY_FILE);
-		} 
+		}
+		if (HISTORY_FILE_POINTER == NULL) { // fopen failed
+			print_history_file_error();
+			return false;
+		}	 
 	}
 	if (COMMAND_FILE != NULL) {
 		if (access(COMMAND_FILE, R_OK) != -1) {
@@ -187,8 +199,16 @@ bool file_setup() {
 			print_script_file_error();
 			return false;
 		}
+		if (COMMAND_FILE_POINTER == NULL) { // fopen failed
+			print_script_file_error();
+			return false;
+		}
 	}
 	return true;
+}
+
+bool log_setup() {
+	LOG = string_vector_create();	
 }
 			
 	
@@ -203,13 +223,18 @@ int shell(int argc, char *argv[]) {
 	signal(SIGCHLD, signal_handler);
 
 	//get options
-	if (option_setup(argc, argv) == false) {
-		print_usage();
+	if (argc == 1) {
+		NO_FLAG = true;
+	} else {	
+		if (option_setup(argc, argv) == false) {
+			print_usage();
+			terminate_shell();
+		}
+	
+		//setup files (ONLY IF there is -h or -f)
+		if (file_setup() == false) {
 		terminate_shell();
-	}	
-	//setup files
-	if (file_setup() == false) {
-		terminate_shell();
+		}
 	}
 	pid_t pid = getpid();
 
