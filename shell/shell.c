@@ -45,7 +45,6 @@ int cmd_validator(char* cmd) {
 	char* semi_col_pos = strstr(cmd, ";");
 	if (and_pos != NULL) {
 		if (or_pos != NULL || semi_col_pos != NULL) {
-			print_invalid_command(cmd);
 			return -1;
 		} else {
 			return 1;
@@ -53,7 +52,6 @@ int cmd_validator(char* cmd) {
 	}
 	if (or_pos != NULL) {
 		if (and_pos != NULL || semi_col_pos != NULL) {
-			print_invalid_command(cmd);
 			return -1;
 		} else {
 			return 2;
@@ -61,7 +59,6 @@ int cmd_validator(char* cmd) {
 	}
 	if (semi_col_pos != NULL) {
 		if (and_pos != NULL || or_pos != NULL) {
-			print_invalid_command(cmd);
 			return -1;
 		} else {
 			return 3;
@@ -122,11 +119,12 @@ bool option_setup(int argc, char** argv) {
 	return true;
 }
 
-void command_dispatcher(char* cmd) {
+void command_dispatcher(char* cmd, int logic_operator) {
 	size_t cmd_len = strlen(cmd);
 	if (cmd_len == 0) {
 		return;
 	}
+	if (logic
 	char* and_pos = strstr(cmd, "&&");
 	char* or_pos = strstr(cmd, "||");
 	char* semi_col_pos = strstr(cmd, ";");
@@ -194,14 +192,18 @@ int shell(int argc, char *argv[]) {
 	
 		//Validate cmd
 		//0: NO Logic Operator
-		//1: 
-		if (cmd_validator(cmd) == false) {
-			prompt_cleaner(cmd, cwd);
-			continue;
-		}
+		//1: AND
+		//2: OR
+		//3: SEMICOLON
+		//-1: INVALID
+		int logic_operator = cmd_validator(cmd);
 
-		//Process commands		
-		command_dispatcher(cmd);
+		//Dispatch Commands (w/ valid cmd)
+		if (logic_operator == -1) {
+			print_invalid_command(cmd);			
+		} else {
+			command_dispatcher(cmd, logic_operator);
+		}
 
 		//CLEAN UP - ready for next prompt
 		prompt_cleaner(cmd, cwd);
