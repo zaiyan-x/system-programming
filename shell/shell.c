@@ -285,6 +285,10 @@ bool exec_nth_command(size_t cmd_line_number) {
 
 bool exec_prefix_command(char* cmd) {
 	size_t cmd_len = strlen(cmd);
+	bool POUND_ONLY = false;
+	if (cmd_len == 1) {
+		POUND_ONLY = true;
+	}
 	char* command_prefix = cmd + 1;
 	size_t prefix_len = strlen(command_prefix);
 	size_t history_command_count = history_command_counter();
@@ -298,6 +302,11 @@ bool exec_prefix_command(char* cmd) {
 		}
 
 		void** _it = vector_end(compiled_history) - 1;
+		if (POUND_ONLY) {
+			cmd_line = *_it;
+			cmd_line[strlen(cmd_line) - 1] = '\0';
+			
+		}
 		while (true) {
 			cmd_line = *_it;
 			if (_it == vector_begin(compiled_history)) {
@@ -312,6 +321,7 @@ bool exec_prefix_command(char* cmd) {
 					break;
 				}
 			}
+			_it--; // UPDATE WHILE LOOP
 		}
 		if (FOUND == false) {
 			return false;	
@@ -323,7 +333,33 @@ bool exec_prefix_command(char* cmd) {
 			return true;
 		}
 	} else { // H_FLAG == false
-		
+		char cmd_line[1024];
+		void** _it = vector_end(LOG) - 1;
+		while (true) {
+			cmd_line = *_it;
+			if (_it == vector_begin(LOG)) {
+				if (strncmp(command_prefix, cmd_line, prefix_len) == 0) {
+					FOUND = true;
+					break;
+				}
+			} else {
+				//strncmp returns 0 if strs are same
+				if (strncmp(command_prefix, cmd_line, prefix_len == 0)) {
+					FOUND = true;
+					break;
+				}
+			}
+			_it--;
+		}
+		if (FOUND == false) {
+			return false;
+		} else {
+			cmd_line[strlen(cmd_len) - 1] = '\0';
+			puts(cmd_line);
+			int logic_operator = cmd_validator(cmd_line);
+			command_dispatcher(cmd_line, logic_operator);
+			return true;
+		}
 	}
 }	
 
