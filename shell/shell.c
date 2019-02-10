@@ -290,34 +290,40 @@ bool exec_prefix_command(char* cmd) {
 		POUND_ONLY = true;
 	}
 	char* command_prefix = cmd + 1;
-	size_t prefix_len = strlen(command_prefix);
-	
+	size_t prefix_len = strlen(command_prefix);	
+	char cmd_line[1024] = { 0 };
 	bool FOUND = false;
 	if (H_FLAG) {
 		write_log();
 		vector* compiled_history = string_vector_create();
-		char cmd_line[1024];
 		while (fgets(cmd_line, sizeof(cmd_line), HISTORY_FILE_POINTER)) {
 			vector_push_back(compiled_history, cmd_line);
 		}
-
+		if (vector_size(compiled_history) == 0) {
+			vector_destroy(compiled_history);
+			return false;
+		}
 		void** _it = vector_end(compiled_history) - 1;
-		if (POUND_ONLY) {
-			strcpy(cmd_line, *_it);
+		if (POUND_ONLY) {	
+			strcpy(cmd_line, *((char**)_it));
 			cmd_line[strlen(cmd_line) - 1] = '\0';
 			puts(cmd_line);
 			int logic_operator = cmd_validator(cmd_line);
 			command_dispatcher(cmd_line, logic_operator);
+			vector_destroy(compiled_history);
 			return true;	
 		}
 		while (true) {
-			strcpy(cmd_line, *_it);
 			if (_it == vector_begin(compiled_history)) {
+				strcpy(cmd_line, *((char**)_it));
+				cmd_line[strlen(cmd_line) - 1] = '\0';
 				if (strncmp(command_prefix, cmd_line, prefix_len) == 0) {
 					FOUND = true;
-					break;
 				}
+				break;
 			} else {
+				strcpy(cmd_line, *((char**)_it));
+				cmd_line[strlen(cmd_line) - 1] = '\0';
 				//strncmp returns 0 if strs are same
 				if (strncmp(command_prefix, cmd_line, prefix_len) == 0) {
 					FOUND = true;
@@ -326,21 +332,23 @@ bool exec_prefix_command(char* cmd) {
 			}
 			_it--; // UPDATE WHILE LOOP
 		}
+
 		vector_destroy(compiled_history);
 		if (FOUND == false) {
 			return false;	
 		} else {
-			cmd_line[strlen(cmd_line) - 1] = '\0';
 			puts(cmd_line);
 			int logic_operator = cmd_validator(cmd_line);
 			command_dispatcher(cmd_line, logic_operator);
 			return true;
 		}
 	} else { // H_FLAG == false
-		char cmd_line[1024];
+		if (vector_size(LOG) == 0) {
+			return false;
+		}
 		void** _it = vector_end(LOG) - 1;
 		if (POUND_ONLY) {
-			strcpy(cmd_line, *_it);
+			strcpy(cmd_line, *((char**)_it));
 			cmd_line[strlen(cmd_line) - 1] = '\0';
 			puts(cmd_line);
 			int logic_operator = cmd_validator(cmd_line);
@@ -348,26 +356,27 @@ bool exec_prefix_command(char* cmd) {
 			return true;
 		}	
 		while (true) {
-			strcpy(cmd_line, *_it);
 			if (_it == vector_begin(LOG)) {
+				strcpy(cmd_line, *((char**)_it));
+				cmd_line[strlen(cmd_line) - 1] = '\0';
 				if (strncmp(command_prefix, cmd_line, prefix_len) == 0) {
 					FOUND = true;
-					break;
 				}
+				break;
 			} else {
+				strcpy(cmd_line, *((char**)_it));
+				cmd_line[strlen(cmd_line) - 1] = '\0';
 				//strncmp returns 0 if strs are same
 				if (strncmp(command_prefix, cmd_line, prefix_len) == 0) {
 					FOUND = true;
 					break;
 				}
 			}
-
 			_it--;
 		}
 		if (FOUND == false) {
 			return false;
 		} else {
-			cmd_line[strlen(cmd_line) - 1] = '\0';
 			puts(cmd_line);
 			int logic_operator = cmd_validator(cmd_line);
 			command_dispatcher(cmd_line, logic_operator);
@@ -382,7 +391,7 @@ int command_dispatcher(char* cmd, int logic_operator) {
 		return 1;
 	}
 	if (logic_operator == 0) { // NO LOGIC OPERATOR
-		if (cmd_len > 1) {
+		if (cmd_len > 0) {
 			if (cmd[0] == 'c' && cmd[1] == 'd' && cmd[2] == 32) {
 				exec_cd(cmd);
 			}
