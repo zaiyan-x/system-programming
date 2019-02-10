@@ -220,6 +220,19 @@ void exec_print_history() {
 	return;	
 }
 
+size_t history_command_counter() {
+	if (H_FLAG) {
+		write_log();
+		char cmd_line[1024];
+		size_t cmd_line_count = 0;
+		while (fgets(cmd_line, sizeof(cmd_line), HISTORY_FILE_POINTER)) {
+			cmd_line_count++;
+		}
+		return cmd_line_count;
+	} else {
+		return vector_size(LOG);
+	}
+
 bool exec_nth_command(size_t cmd_line_number) {
 	//#<n> is not stored in the history
 	//But the executed command is 
@@ -250,7 +263,7 @@ bool exec_nth_command(size_t cmd_line_number) {
 		void** _end = vector_end(LOG);
 		size_t curr_cmd_line = 0;
 		bool INBOUND = false;
-		for( ; _it != _end; ++_it) {
+		for(; _it != _end; ++_it) {
 			if (curr_cmd_line == cmd_line_number) {
 				strcpy(cmd_line, *_it);
 				cmd_line[strlen(cmd_line) - 1] = '\0';
@@ -268,6 +281,50 @@ bool exec_nth_command(size_t cmd_line_number) {
 			return true;
 		}
 	}
+}
+
+bool exec_prefix_command(char* cmd) {
+	size_t cmd_len = strlen(cmd);
+	char* command_prefix = cmd + 1;
+	size_t prefix_len = strlen(command_prefix);
+	size_t history_command_count = history_command_counter();
+	bool FOUND = false;
+	if (H_FLAG) {
+		write_log();
+		vector* compiled_history = string_vector_create();
+		char cmd_line[1024];
+		while (fgets(cmd_line, sizeof(cmd_line), HISTORY_FILE_POINTER)) {
+			vector_push_back(compiled_history, cmd_line);
+		}
+
+		void** _it = vector_end(compiled_history) - 1;
+		while (true) {
+			cmd_line = *_it;
+			if (_it == vector_begin(compiled_history)) {
+				if (strncmp(command_prefix, cmd_line, prefix_len) == 0) {
+					FOUND = true;
+					break;
+				}
+			} else {
+				//strncmp returns 0 if strs are same
+				if (strncmp(command_prefix, cmd_line, prefix_len) == 0) {
+					FOUND = true;
+					break;
+				}
+			}
+		}
+		if (FOUND == false) {
+			return false;	
+		} else {
+			cmd_line[strlen(cmd_len) - 1] = '\0';
+			purts(cmd_line);
+			int logic_operator = cmd_validator(cmd_line);
+			command_dispatcher(cmd_line, logic_operator);
+			return true;
+		}
+	} else { // H_FLAG == false
+		
+	}
 }	
 
 void command_dispatcher(char* cmd, int logic_operator) {
@@ -284,6 +341,7 @@ void command_dispatcher(char* cmd, int logic_operator) {
 				if (strstr(cmd, "history")) {//!history
 					exec_print_history();
 				} else {//!<prefix>
+					exec_prefix_command(cmd);
 				}	
 			}
 			if (cmd[0] == '#') {//#<n>
