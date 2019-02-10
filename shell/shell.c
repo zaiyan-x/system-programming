@@ -171,10 +171,14 @@ void exec_cd(char* cmd) {
 		print_no_directory("");
 		return;
 	}
-
+	
+	if (cmd[2] != 32) {
+		print_invalid_command(cmd);
+		return;
+	}
 	char* directory = cmd + 3;
-
-	if (chdir(directory)) {
+	
+	if (chdir(directory) == -1) {
 		print_no_directory(directory);
 	}
 }
