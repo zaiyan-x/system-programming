@@ -13,7 +13,7 @@
 #include "shell.h"
 #include "vector.h"
 
-#define terminate_shell() write_log(); shell_cleaner(); return 0;
+#define terminate_shell() write_log(); shell_cleaner(); exit(0);
 #define prompt_cleaner(a, b) free(a); free(b); a = NULL; b = NULL;
 extern char * optarg;
 extern int optind, opterr, optopt;
@@ -35,7 +35,7 @@ typedef struct process {
     pid_t pid;
 } process;
 
-void command_dispatcher(char*, int);
+int command_dispatcher(char*, int);
 
 bool argc_validator(int argc) {
 	if (argc == 1 || argc == 3 || argc == 5) {
@@ -376,10 +376,10 @@ bool exec_prefix_command(char* cmd) {
 	}
 }	
 
-void command_dispatcher(char* cmd, int logic_operator) {
+int command_dispatcher(char* cmd, int logic_operator) {
 	size_t cmd_len = strlen(cmd);
 	if (cmd_len == 0) {
-		return;
+		return 1;
 	}
 	if (logic_operator == 0) { // NO LOGIC OPERATOR
 		if (cmd_len > 1) {
@@ -405,6 +405,9 @@ void command_dispatcher(char* cmd, int logic_operator) {
 					}
 				}
 			}
+			if (cmd[0] == 'e' && cmd[1] == 'x' && cmd[2] == 'i' && cmd[3] == 't'				&& cmd[4] == 0) { // exit
+					return 0;
+			}					
 		}			
 	} else if (logic_operator == 1) { // AND
 		//char* and_pos = strstr(cmd, "&&");
@@ -420,6 +423,7 @@ void command_dispatcher(char* cmd, int logic_operator) {
 
 	} else { //TODO DO nothing
 	}
+	return 0;
 }
 bool file_setup() {
 	if (HISTORY_FILE != NULL) {
@@ -515,16 +519,20 @@ int shell(int argc, char *argv[]) {
 		//3: SEMICOLON
 		//-1: INVALID
 		int logic_operator = cmd_validator(cmd);
-
+		int return_value = 1;
 		//Dispatch Commands (w/ valid cmd)
 		if (logic_operator == -1) {
 			print_invalid_command(cmd);			
 		} else {
-			command_dispatcher(cmd, logic_operator);
+			return_value = command_dispatcher(cmd, logic_operator);
 		}
-
+		
 		//CLEAN UP - ready for next prompt
 		prompt_cleaner(cmd, cwd);
+		if (return_value == 0) {
+			terminate_shell();
+		} else {
+		}
 	}
 	exit(0);
 }
