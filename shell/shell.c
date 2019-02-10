@@ -340,7 +340,13 @@ bool exec_prefix_command(char* cmd) {
 		char cmd_line[1024];
 		void** _it = vector_end(LOG) - 1;
 		if (POUND_ONLY) {
-		
+			strcpy(cmd_line, *_it);
+			cmd_line[strlen(cmd_line) - 1] = '\0';
+			puts(cmd_line);
+			int logic_operator = cmd_validator(cmd_line);
+			command_dispatcher(cmd_line, logic_operator);
+			return true;
+		}	
 		while (true) {
 			strcpy(cmd_line, *_it);
 			if (_it == vector_begin(LOG)) {
@@ -383,7 +389,9 @@ void command_dispatcher(char* cmd, int logic_operator) {
 				if (strstr(cmd, "history")) {//!history
 					exec_print_history();
 				} else {//!<prefix>
-					exec_prefix_command(cmd);
+					if (exec_prefix_command(cmd) == false) {
+						print_no_history_match();
+					}
 				}	
 			}
 			if (cmd[0] == '#') {//#<n>
