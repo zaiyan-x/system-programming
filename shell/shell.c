@@ -423,7 +423,7 @@ int command_dispatcher(char* cmd, int logic_operator) {
 
 	} else { //TODO DO nothing
 	}
-	return 0;
+	return 1;
 }
 bool file_setup() {
 	if (HISTORY_FILE != NULL) {
@@ -504,7 +504,7 @@ int shell(int argc, char *argv[]) {
 			print_prompt(cwd, pid);
 		}
 		if (getline(&cmd, &cmd_size, stdin) == -1) {
-			print_usage();
+			//EOF is reached
 			prompt_cleaner(cmd, cwd);
 			terminate_shell();	
 		}
@@ -524,6 +524,9 @@ int shell(int argc, char *argv[]) {
 		if (logic_operator == -1) {
 			print_invalid_command(cmd);			
 		} else {
+			//command_dispatcher RETURN VALUE
+			//0: NOTHING HAPPENED / EXEC SUCCEED
+			//1: RECEIVED EXIT
 			return_value = command_dispatcher(cmd, logic_operator);
 		}
 		
