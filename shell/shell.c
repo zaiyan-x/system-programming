@@ -86,10 +86,14 @@ void signal_handler(int signal) {
 void shell_cleaner() {
 	if (HISTORY_FILE) {
 		free(HISTORY_FILE);
+		fclose(HISTORY_FILE_POINTER);
+		HISTORY_FILE_POINTER = NULL;
 		HISTORY_FILE = NULL;
 	}
 	if (COMMAND_FILE) {
 		free(COMMAND_FILE);
+		fclose(COMMAND_FILE_POINTER);
+		COMMAND_FILE_POINTER = NULL;
 		COMMAND_FILE = NULL;
 	}
 	if (HISTORY_PATH) {
@@ -101,7 +105,7 @@ void shell_cleaner() {
 		COMMAND_PATH = NULL;
 	}
 	if (LOG) {
-		free(LOG);
+		vector_destroy(LOG);
 		LOG = NULL;
 	}
 	return;
