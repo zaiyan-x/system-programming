@@ -232,7 +232,7 @@ size_t history_command_counter() {
 	} else {
 		return vector_size(LOG);
 	}
-
+}
 bool exec_nth_command(size_t cmd_line_number) {
 	//#<n> is not stored in the history
 	//But the executed command is 
@@ -291,7 +291,7 @@ bool exec_prefix_command(char* cmd) {
 	}
 	char* command_prefix = cmd + 1;
 	size_t prefix_len = strlen(command_prefix);
-	size_t history_command_count = history_command_counter();
+	
 	bool FOUND = false;
 	if (H_FLAG) {
 		write_log();
@@ -311,7 +311,7 @@ bool exec_prefix_command(char* cmd) {
 			return true;	
 		}
 		while (true) {
-			strcpy(cmd_line, *it);
+			strcpy(cmd_line, *_it);
 			if (_it == vector_begin(compiled_history)) {
 				if (strncmp(command_prefix, cmd_line, prefix_len) == 0) {
 					FOUND = true;
@@ -330,8 +330,8 @@ bool exec_prefix_command(char* cmd) {
 		if (FOUND == false) {
 			return false;	
 		} else {
-			cmd_line[strlen(cmd_len) - 1] = '\0';
-			purts(cmd_line);
+			cmd_line[strlen(cmd_line) - 1] = '\0';
+			puts(cmd_line);
 			int logic_operator = cmd_validator(cmd_line);
 			command_dispatcher(cmd_line, logic_operator);
 			return true;
@@ -356,17 +356,18 @@ bool exec_prefix_command(char* cmd) {
 				}
 			} else {
 				//strncmp returns 0 if strs are same
-				if (strncmp(command_prefix, cmd_line, prefix_len == 0)) {
+				if (strncmp(command_prefix, cmd_line, prefix_len) == 0) {
 					FOUND = true;
 					break;
 				}
 			}
+
 			_it--;
 		}
 		if (FOUND == false) {
 			return false;
 		} else {
-			cmd_line[strlen(cmd_len) - 1] = '\0';
+			cmd_line[strlen(cmd_line) - 1] = '\0';
 			puts(cmd_line);
 			int logic_operator = cmd_validator(cmd_line);
 			command_dispatcher(cmd_line, logic_operator);
