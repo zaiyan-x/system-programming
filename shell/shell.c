@@ -303,12 +303,15 @@ bool exec_prefix_command(char* cmd) {
 
 		void** _it = vector_end(compiled_history) - 1;
 		if (POUND_ONLY) {
-			cmd_line = *_it;
+			strcpy(cmd_line, *_it);
 			cmd_line[strlen(cmd_line) - 1] = '\0';
-			
+			puts(cmd_line);
+			int logic_operator = cmd_validator(cmd_line);
+			command_dispatcher(cmd_line, logic_operator);
+			return true;	
 		}
 		while (true) {
-			cmd_line = *_it;
+			strcpy(cmd_line, *it);
 			if (_it == vector_begin(compiled_history)) {
 				if (strncmp(command_prefix, cmd_line, prefix_len) == 0) {
 					FOUND = true;
@@ -323,6 +326,7 @@ bool exec_prefix_command(char* cmd) {
 			}
 			_it--; // UPDATE WHILE LOOP
 		}
+		vector_destroy(compiled_history);
 		if (FOUND == false) {
 			return false;	
 		} else {
@@ -335,8 +339,10 @@ bool exec_prefix_command(char* cmd) {
 	} else { // H_FLAG == false
 		char cmd_line[1024];
 		void** _it = vector_end(LOG) - 1;
+		if (POUND_ONLY) {
+		
 		while (true) {
-			cmd_line = *_it;
+			strcpy(cmd_line, *_it);
 			if (_it == vector_begin(LOG)) {
 				if (strncmp(command_prefix, cmd_line, prefix_len) == 0) {
 					FOUND = true;
