@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <signal.h>
 #include <string.h>
+#include <ctype.h>
  
 #include "format.h"
 #include "shell.h"
@@ -34,7 +35,7 @@ typedef struct process {
     pid_t pid;
 } process;
 
-
+void command_dispatcher(char*, int);
 
 bool argc_validator(int argc) {
 	if (argc == 1 || argc == 3 || argc == 5) {
@@ -161,7 +162,18 @@ void write_log() {
 		}
 	}
 	vector_clear(LOG);
+	fseek(HISTORY_FILE_POINTER, 0, SEEK_SET);
 	return;
+}
+
+bool number_validator(char* cmd) {
+	size_t i;
+	for (i = 0; i < strlen(cmd); i++) {
+		if (!isdigit(cmd[i])) {
+			return false;
+		}
+	}
+	return true;
 }
 
 void exec_cd(char* cmd) {
@@ -172,10 +184,6 @@ void exec_cd(char* cmd) {
 		return;
 	}
 	
-	if (cmd[2] != 32) {
-		print_invalid_command(cmd);
-		return;
-	}
 	char* directory = cmd + 3;
 	
 	if (chdir(directory) == -1) {
@@ -194,13 +202,12 @@ void print_current_shell_session_log() {
 		cmd_line_number++;
 	}
 	return;
-}
+}	
 
 void exec_print_history() {
 	//!history is not stored in history
 	if (H_FLAG) {
 		write_log();
-		fseek(HISTORY_FILE_POINTER, 0, SEEK_SET);
 		char cmd_line[1024];
 		size_t cmd_line_number = 0;
 		while (fgets(cmd_line, sizeof(cmd_line), HISTORY_FILE_POINTER)) {
@@ -213,6 +220,56 @@ void exec_print_history() {
 	return;	
 }
 
+bool exec_nth_command(size_t cmd_line_number) {
+	//#<n> is not stored in the history
+	//But the executed command is 
+	if (H_FLAG) {
+		write_log();
+		char cmd_line[1024];
+		size_t curr_cmd_line = 0;
+		bool INBOUND = false;
+		while (fgets(cmd_line, sizeof(cmd_line), HISTORY_FILE_POINTER)) {
+			if (curr_cmd_line == cmd_line_number) {
+				cmd_line[strlen(cmd_line) - 1] = '\0';
+				INBOUND = true;
+				break;
+			}
+			curr_cmd_line++;
+		}
+		if (INBOUND == false) {
+			return false;
+		} else {
+			int logic_operator = cmd_validator(cmd_line);
+			puts(cmd_line);
+			command_dispatcher(cmd_line, logic_operator);
+			return true;
+		}
+	} else {
+		char cmd_line[1024];
+		void** _it = vector_begin(LOG);
+		void** _end = vector_end(LOG);
+		size_t curr_cmd_line = 0;
+		bool INBOUND = false;
+		for( ; _it != _end; ++_it) {
+			if (curr_cmd_line == cmd_line_number) {
+				strcpy(cmd_line, *_it);
+				cmd_line[strlen(cmd_line) - 1] = '\0';
+				INBOUND = true;
+				break;
+			}
+			curr_cmd_line++;
+		}
+		if (INBOUND == false) {
+			return false;
+		} else {
+			int logic_operator = cmd_validator(cmd_line);
+			puts(cmd_line);
+			command_dispatcher(cmd_line, logic_operator);
+			return true;
+		}
+	}
+}	
+
 void command_dispatcher(char* cmd, int logic_operator) {
 	size_t cmd_len = strlen(cmd);
 	if (cmd_len == 0) {
@@ -220,15 +277,24 @@ void command_dispatcher(char* cmd, int logic_operator) {
 	}
 	if (logic_operator == 0) { // NO LOGIC OPERATOR
 		if (cmd_len > 1) {
-			if (cmd[0] == 'c' && cmd[1] == 'd') {
+			if (cmd[0] == 'c' && cmd[1] == 'd' && cmd[2] == 32) {
 				exec_cd(cmd);
 			}
 			if (cmd[0] == '!') {
-				if (strstr(cmd, "history")) {
+				if (strstr(cmd, "history")) {//!history
 					exec_print_history();
-				}				
+				} else {//!<prefix>
+				}	
 			}
-			if (cmd[0] == '#') {
+			if (cmd[0] == '#') {//#<n>
+				if (number_validator(cmd + 1) == false) {
+					print_invalid_index();
+				} else {
+					int cmd_line_number = atoi(cmd + 1);
+					if (!exec_nth_command((size_t)cmd_line_number)) {
+						print_invalid_index();
+					}
+				}
 			}
 		}			
 	} else if (logic_operator == 1) { // AND
