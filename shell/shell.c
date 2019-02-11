@@ -33,6 +33,7 @@ static bool H_FLAG = false;
 static bool F_FLAG = false;
 static bool LOGIC = false;
 
+static vector* PROC = NULL;
 typedef struct process {
     char *command;
     pid_t pid;
@@ -80,13 +81,25 @@ void signal_handler(int signal) {
 	if (signal == SIGINT) {
 		return;
 	} else if (signal == SIGCHLD) {
-		while (waitpid((pid_t)(-1), 0, WNOHANG) > 0) {
+		pid_t child_pid;
+		while ((child_pid = waitpid((pid_t)(-1), 0, WNOHANG)) > 0) {
+			unlog_process(child_pid);
 			continue;
 		}
 		return;
 	} else {
 		return;
 	}
+}
+
+void child_process_reaper() {
+	size_t i;
+	pid_t child_pid;
+	for (i = 0; i < vector_size(PROC); i++) {
+		child_pid = (pid_t) (*vector_get(PROC, i));
+		kill(child_pid, SIGKILL);
+	}
+	return;
 }
 
 void shell_cleaner() {
@@ -113,6 +126,10 @@ void shell_cleaner() {
 	if (LOG) {
 		vector_destroy(LOG);
 		LOG = NULL;
+	}
+	if (PROC) {
+		vector_destroy(PROC);
+		PROC = NULL;
 	}
 	return;
 }
@@ -427,7 +444,16 @@ bool exec_prefix_command(char* cmd) {
 			return true;
 		}
 	}
-}	
+}
+
+void unlog_process(pid_t pid) {
+	size_t i;
+	for (i = 0; i < vector_size(PROC); i++) {
+		if ((*vector_get(PROC, i)) == (unsigned int) pid) {
+			vector_erase(PROC, i);
+		}
+	}
+}
 
 int command_dispatcher(char* cmd, int logic_operator) {
 	size_t cmd_len = strlen(cmd);
@@ -485,6 +511,8 @@ int command_dispatcher(char* cmd, int logic_operator) {
 			}
 			int status;
 			pid_t pid = fork();
+			//REMEMBER CHLD PID
+			vector_push_back(PROC, (unsigned int) pid);
 			if (pid < 0) { // fork failed
 				print_fork_failed();
 				return -1;
@@ -512,7 +540,8 @@ int command_dispatcher(char* cmd, int logic_operator) {
 				exit(1);
 			} else { //parent case
 				if (!BACKGROUND) {
-					waitpid(pid, &status, 0);
+					pid_t child_pid = waitpid(pid, &status, 0);
+					unlog_process(child_pid);
 					if (status != 0) {
 						return -1;
 					} else {
@@ -661,6 +690,10 @@ bool log_setup() {
 	}	
 }
 			
+void process_vector_setup() {
+	PROC = unsigne_int_vector_create();
+	return;
+}
 	
 int shell(int argc, char *argv[]) {
 	if (!argc_validator(argc)) {
@@ -686,6 +719,8 @@ int shell(int argc, char *argv[]) {
 		terminate_shell();
 		}
 	}
+	//set up PROC
+	process_vector_setup();
 
 	//Get ready to prompt
 	log_setup();	
