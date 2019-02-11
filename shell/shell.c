@@ -29,6 +29,7 @@ static vector* LOG = NULL;
 static bool NO_FLAG = false;
 static bool H_FLAG = false;
 static bool F_FLAG = false;
+static bool LOGIC = false;
 
 typedef struct process {
     char *command;
@@ -180,19 +181,20 @@ bool number_validator(char* cmd) {
 	return true;
 }
 
-void exec_cd(char* cmd) {
-	log_cmd(cmd);
+bool exec_cd(char* cmd) {
 	size_t cmd_len = strlen(cmd);
 	if (cmd_len <= 3) {
 		print_no_directory("");
-		return;
+		return false;
 	}
 	
 	char* directory = cmd + 3;
 	
 	if (chdir(directory) == -1) {
 		print_no_directory(directory);
+		return false;
 	}
+	return true;
 }
 
 void print_current_shell_session_log() {
@@ -395,44 +397,140 @@ int command_dispatcher(char* cmd, int logic_operator) {
 		return 1;
 	}
 	if (logic_operator == 0) { // NO LOGIC OPERATOR
-		if (cmd_len > 0) {
-			if (cmd[0] == 'c' && cmd[1] == 'd' && cmd[2] == 32) {
-				exec_cd(cmd);
+		if (cmd[0] == 'c' && cmd[1] == 'd' && cmd[2] == 32) {
+			if (!LOGIC) {
+				log_cmd(cmd);
 			}
-			if (cmd[0] == '!') {
-				if (strstr(cmd, "history")) {//!history
-					exec_print_history();
-				} else {//!<prefix>
-					if (exec_prefix_command(cmd) == false) {
-						print_no_history_match();
-					}
-				}	
+			if (exec_cd(cmd) == false) {
+				return -1;
+			} else {
+				return 1; //cd success
 			}
-			if (cmd[0] == '#') {//#<n>
-				if (number_validator(cmd + 1) == false) {
-					print_invalid_index();
+		} else if (cmd[0] == 'c' && cmd[1] == 'd' && cmd[2] == '.') {
+			print_invalid_command(cmd);
+			return -1;
+		} else if (cmd[0] == '!') {
+			if (strstr(cmd, "history")) {//!history
+				exec_print_history();
+				return 1;
+			} else {//!<prefix>
+				if (exec_prefix_command(cmd) == false) {
+					print_no_history_match();
+					return -1;
 				} else {
-					int cmd_line_number = atoi(cmd + 1);
-					if (!exec_nth_command((size_t)cmd_line_number)) {
-						print_invalid_index();
-					}
+					return 1; //prefix success
 				}
+			}	
+		} else if (cmd[0] == '#') {//#<n>
+			if (number_validator(cmd + 1) == false) {
+				print_invalid_index();
+				return -1;
+			} else {
+				int cmd_line_number = atoi(cmd + 1);
+				if (!exec_nth_command((size_t)cmd_line_number)) {
+					print_invalid_index();
+					return -1;
+				}
+				return 1; //nth exec success
 			}
-			if (cmd[0] == 'e' && cmd[1] == 'x' && cmd[2] == 'i' && cmd[3] == 't'				&& cmd[4] == 0) { // exit
-					return 0;
-			}					
-		}			
+		} else if (cmd[0] == 'e' && cmd[1] == 'x' && cmd[2] == 'i' && cmd[3] == 't') { // exit
+			return 0;
+		} else {
+			//external
+		}							
 	} else if (logic_operator == 1) { // AND
-		//char* and_pos = strstr(cmd, "&&");
-
-
+		LOGIC = true;
+		char* and_pos = strstr(cmd, "&&");
+		char* second_cmd_start = and_pos + 3;
+		size_t first_cmd_len = and_pos - cmd - 1;
+		char first_cmd[1024];
+		char second_cmd[1024];
+		strncpy(first_cmd, cmd, first_cmd_len);
+		first_cmd[first_cmd_len] = '\0';
+		strcpy(second_cmd, second_cmd_start);
+		if (first_cmd[0] == '!' || second_cmd[0] == '!') {
+		} else if (first_cmd[0] == '#' || second_cmd[0] == '#') {//#<n>
+			print_invalid_command(cmd);
+			return -1;
+		} else if (cmd[0] == 'e' && cmd[1] == 'x' && cmd[2] == 'i' && cmd[3] == 't') { // exit
+			print_invalid_command(cmd);
+			return -1;
+		} else {//command chaining VALID
+			log_cmd(cmd);
+			if (command_dispatcher(first_cmd, 0) == 1) {
+				if (command_dispatcher(second_cmd, 0) == 1) {
+					LOGIC = false;
+					return 1;
+				} else {
+					LOGIC = false;
+					return -1;
+				}
+			} else {
+				LOGIC = false;
+				return -1;
+			}
+		}
 	} else if (logic_operator == 2) { // OR
-		//char* or_pos = strstr(cmd, "&&");
-
+		LOGIC = true;
+		char* or_pos = strstr(cmd, "||");
+		char* second_cmd_start = or_pos + 3;
+		size_t first_cmd_len = or_pos - cmd - 1;
+		char first_cmd[1024];
+		char second_cmd[1024];
+		strncpy(first_cmd, cmd, first_cmd_len);
+		first_cmd[first_cmd_len] = '\0';
+		strcpy(second_cmd, second_cmd_start);
+		if (first_cmd[0] == '!' || second_cmd[0] == '!') {
+		} else if (first_cmd[0] == '#' || second_cmd[0] == '#') {//#<n>
+			print_invalid_command(cmd);
+			return -1;
+		} else if (cmd[0] == 'e' && cmd[1] == 'x' && cmd[2] == 'i' && cmd[3] == 't') { // exit
+			print_invalid_command(cmd);
+			return -1;
+		} else {//command chaining VALID
+			log_cmd(cmd);
+			if (command_dispatcher(first_cmd, 0) == -1) {
+				if (command_dispatcher(second_cmd, 0) == -1) {
+					LOGIC = false;
+					return -1;
+				} else {
+					LOGIC = false;
+					return 1;
+				}
+			} else {
+				LOGIC = false;
+				return 1;
+			}
+		}
 
 	} else if (logic_operator == 3) { // SEMI COLON
-		//char* semi_col_pos = strstr(cmd, ";");
-
+		LOGIC = true;
+		char* semi_col_pos = strstr(cmd, ";");
+		char* second_cmd_start = semi_col_pos + 2;
+		size_t first_cmd_len = semi_col_pos - cmd - 1;
+		char first_cmd[1024];
+		char second_cmd[1024];
+		strncpy(first_cmd, cmd, first_cmd_len);
+		first_cmd[first_cmd_len] = '\0';
+		strcpy(second_cmd, second_cmd_start);
+		if (first_cmd[0] == '!' || second_cmd[0] == '!') {
+		} else if (first_cmd[0] == '#' || second_cmd[0] == '#') {//#<n>
+			print_invalid_command(cmd);
+			return -1;
+		} else if (cmd[0] == 'e' && cmd[1] == 'x' && cmd[2] == 'i' && cmd[3] == 't') { // exit
+			print_invalid_command(cmd);
+			return -1;
+		} else {//command chaining VALID
+			log_cmd(cmd);
+			if (command_dispatcher(first_cmd, 0) == -1 ||
+			command_dispatcher(second_cmd, 0) == -1) {
+				LOGIC = false;
+				return -1;
+			} else {
+				LOGIC = false;
+				return 1;
+			}
+		}
 
 	} else { //TODO DO nothing
 	}
@@ -538,8 +636,9 @@ int shell(int argc, char *argv[]) {
 			print_invalid_command(cmd);			
 		} else {
 			//command_dispatcher RETURN VALUE
-			//0: NOTHING HAPPENED / EXEC SUCCEED
-			//1: RECEIVED EXIT
+			//1: EXEC SUCCEED
+			//0: RECEIVED EXIT
+			//-1: INPUT INVALID / NOTHING EXEC / NON-SIGNIFICANT ERROR 
 			return_value = command_dispatcher(cmd, logic_operator);
 		}
 		
