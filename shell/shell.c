@@ -503,7 +503,7 @@ int command_dispatcher(char* cmd, int logic_operator) {
 					}
 				}
 				char** parsed_cmd = external_command_parser(cmd_mod);
-				execvp(parsed_cmd[0], parsed_cmd + 1);
+				execvp(parsed_cmd[0], parsed_cmd);
 				parsed_external_command_cleaner(parsed_cmd);
 				print_exec_failed(cmd);
 				exit(1);
