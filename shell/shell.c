@@ -223,13 +223,14 @@ bool exec_cd(char* cmd) {
 }
 
 void print_current_shell_session_log() {
-	char* cmd = NULL;
+	char cmd[1024];
 	void** _it = vector_begin(LOG);
 	void** _end = vector_end(LOG);
 	size_t cmd_line_number = 0;
 	for( ; _it != _end; ++_it) {
-		cmd = *_it;
-		print_history_line(cmd_line_number, (char*) cmd);
+		strcpy(cmd, *(char**)_it);
+		cmd[strlen(cmd) - 1] = '\0';
+		print_history_line(cmd_line_number, cmd);
 		cmd_line_number++;
 	}
 	return;
@@ -242,6 +243,7 @@ void exec_print_history() {
 		char cmd_line[1024];
 		size_t cmd_line_number = 0;
 		while (fgets(cmd_line, sizeof(cmd_line), HISTORY_FILE_POINTER)) {
+			cmd_line[strlen(cmd_line) - 1] = '\0';
 			print_history_line(cmd_line_number, cmd_line);
 			cmd_line_number++;
 		}
@@ -464,7 +466,7 @@ int command_dispatcher(char* cmd, int logic_operator) {
 		return -1;
 	}
 	if (logic_operator == 0) { // NO LOGIC OPERATOR
-		if (cmd[0] == 'c' && cmd[1] == 'd' && cmd[2] == 32) {
+		if (cmd[0] == 'c' && cmd[1] == 'd' && cmd[2] == ' ') {
 			if (!LOGIC) {
 				log_cmd(cmd);
 			}
@@ -473,9 +475,6 @@ int command_dispatcher(char* cmd, int logic_operator) {
 			} else {
 				return 1; //cd success
 			}
-		} else if (cmd[0] == 'c' && cmd[1] == 'd' && cmd[2] == '.') {
-			print_invalid_command(cmd);
-			return -1;
 		} else if (cmd[0] == '!') {
 			if (strstr(cmd, "history")) {//!history
 				exec_print_history();
@@ -551,6 +550,10 @@ int command_dispatcher(char* cmd, int logic_operator) {
 						return 1;
 					}
 				} else {
+					if (setpgid(pid, pid) == -1) {
+						print_setpgid_failed();
+						exit(1);
+					}
 					return 1;
 				}
 			}	
