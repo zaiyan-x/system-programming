@@ -310,6 +310,18 @@ char** external_command_parser(char* cmd) {
 	return parsed_args;
 }
 
+void parsed_external_command_cleaner(char** cmd) {
+	size_t i;
+	while(cmd[i] != NULL) {
+		free(cmd[i]);
+		cmd[i] = NULL;
+		i++;
+	}
+	free(cmd);
+	cmd = NULL;
+	return;
+}
+
 bool exec_prefix_command(char* cmd) {
 	size_t cmd_len = strlen(cmd);
 	bool POUND_ONLY = false;
