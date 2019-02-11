@@ -8,10 +8,12 @@
 #include <signal.h>
 #include <string.h>
 #include <ctype.h>
+#include <sys/wait.h>
  
 #include "format.h"
 #include "shell.h"
 #include "vector.h"
+#include "sstring.h"
 
 #define terminate_shell() write_log(); shell_cleaner(); exit(0);
 #define prompt_cleaner(a, b) free(a); free(b); a = NULL; b = NULL;
@@ -294,8 +296,10 @@ bool exec_nth_command(size_t cmd_line_number) {
 
 char** external_command_parser(char* cmd) {
 	sstring* cmd_args = cstr_to_sstring(cmd);
+	free(cmd);
+	cmd = NULL;
 	vector* parsed_cmd = sstring_split(cmd_args, ' ');
-	free(cmd_args);
+	sstring_destroy(cmd_args);
 	cmd_args = NULL;
 	char** parsed_args = malloc((vector_size(parsed_cmd) + 1) * sizeof(char*));
 	void** _it = vector_begin(parsed_cmd);
@@ -306,12 +310,13 @@ char** external_command_parser(char* cmd) {
 		i++;
 	}
 	vector_destroy(parsed_cmd);
+	parsed_cmd = NULL;
 	parsed_args[i] = NULL;
 	return parsed_args;
 }
 
 void parsed_external_command_cleaner(char** cmd) {
-	size_t i;
+	size_t i = 0;
 	while(cmd[i] != NULL) {
 		free(cmd[i]);
 		cmd[i] = NULL;
@@ -471,6 +476,11 @@ int command_dispatcher(char* cmd, int logic_operator) {
 		} else {
 			////////////////////////////////////////////////////
 			/////////////////////EXTERNAL///////////////////////
+			bool BACKGROUND = false;
+			if (cmd[cmd_len - 1] == '&') {
+				BACKGROUND = true;
+			}	
+			log_cmd(cmd);
 			fflush(stdout); //flush
 			int status;
 			pid_t pid = fork();
@@ -478,8 +488,33 @@ int command_dispatcher(char* cmd, int logic_operator) {
 				print_fork_failed();
 				return -1;
 			} else if (pid == 0) { //child process
-				 
-		}							
+				char* cmd_mod = malloc((cmd_len + 1) * sizeof(char));
+				size_t i;
+				for (i = 0; i < cmd_len; i++) {
+					cmd_mod[i] = cmd[i];
+				}
+				cmd_mod[cmd_len] = '\0';
+				if (BACKGROUND) {	
+					if (cmd_mod[cmd_len - 1] == '&') {
+						cmd_mod[cmd_len - 1] = '\0';
+					}
+					if (cmd_mod[cmd_len - 2] == ' ') {
+						cmd_mod[cmd_len - 2] = '\0';
+					}
+				}
+				char** parsed_cmd = external_command_parser(cmd_mod);
+				execvp(parsed_cmd[0], parsed_cmd + 1);
+				parsed_external_command_cleaner(parsed_cmd);
+				print_exec_failed(cmd);
+				exit(1);
+			} else { //parent case
+				if (!BACKGROUND) {
+					waitpid(pid, &status, 0);
+				} else {
+					return 1;
+				}
+			}	
+		}								
 	} else if (logic_operator == 1) { // AND
 		LOGIC = true;
 		char* and_pos = strstr(cmd, "&&");
