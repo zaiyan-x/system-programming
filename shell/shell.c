@@ -264,7 +264,6 @@ bool exec_nth_command(size_t cmd_line_number) {
 			return false;
 		} else {
 			int logic_operator = cmd_validator(cmd_line);
-			puts(cmd_line);
 			command_dispatcher(cmd_line, logic_operator);
 			return true;
 		}
@@ -287,7 +286,6 @@ bool exec_nth_command(size_t cmd_line_number) {
 			return false;
 		} else {
 			int logic_operator = cmd_validator(cmd_line);
-			puts(cmd_line);
 			command_dispatcher(cmd_line, logic_operator);
 			return true;
 		}
@@ -351,7 +349,6 @@ bool exec_prefix_command(char* cmd) {
 		if (POUND_ONLY) {	
 			strcpy(cmd_line, *((char**)_it));
 			cmd_line[strlen(cmd_line) - 1] = '\0';
-			puts(cmd_line);
 			int logic_operator = cmd_validator(cmd_line);
 			command_dispatcher(cmd_line, logic_operator);
 			vector_destroy(compiled_history);
@@ -381,7 +378,6 @@ bool exec_prefix_command(char* cmd) {
 		if (FOUND == false) {
 			return false;	
 		} else {
-			puts(cmd_line);
 			int logic_operator = cmd_validator(cmd_line);
 			command_dispatcher(cmd_line, logic_operator);
 			return true;
@@ -394,7 +390,6 @@ bool exec_prefix_command(char* cmd) {
 		if (POUND_ONLY) {
 			strcpy(cmd_line, *((char**)_it));
 			cmd_line[strlen(cmd_line) - 1] = '\0';
-			puts(cmd_line);
 			int logic_operator = cmd_validator(cmd_line);
 			command_dispatcher(cmd_line, logic_operator);
 			return true;
@@ -421,7 +416,6 @@ bool exec_prefix_command(char* cmd) {
 		if (FOUND == false) {
 			return false;
 		} else {
-			puts(cmd_line);
 			int logic_operator = cmd_validator(cmd_line);
 			command_dispatcher(cmd_line, logic_operator);
 			return true;
@@ -479,8 +473,7 @@ int command_dispatcher(char* cmd, int logic_operator) {
 			bool BACKGROUND = false;
 			if (cmd[cmd_len - 1] == '&') {
 				BACKGROUND = true;
-			}	
-			log_cmd(cmd);
+			}
 			int status;
 			pid_t pid = fork();
 			if (pid < 0) { // fork failed
@@ -502,6 +495,8 @@ int command_dispatcher(char* cmd, int logic_operator) {
 					}
 				}
 				char** parsed_cmd = external_command_parser(cmd_mod);
+				print_command_executed(getpid());
+				fsync(STDOUT_FILENO);
 				execvp(parsed_cmd[0], parsed_cmd);
 				parsed_external_command_cleaner(parsed_cmd);
 				print_exec_failed(cmd);
