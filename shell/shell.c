@@ -209,7 +209,7 @@ void print_current_shell_session_log() {
 	size_t cmd_line_number = 0;
 	for( ; _it != _end; ++_it) {
 		cmd = *_it;
-		printf("%zu\t%s", cmd_line_number, (char*) cmd);
+		print_history_line(cmd_line_number, (char*) cmd);
 		cmd_line_number++;
 	}
 	return;
@@ -507,6 +507,11 @@ int command_dispatcher(char* cmd, int logic_operator) {
 			} else { //parent case
 				if (!BACKGROUND) {
 					waitpid(pid, &status, 0);
+					if (status != 0) {
+						return -1;
+					} else {
+						return 1;
+					}
 				} else {
 					return 1;
 				}
