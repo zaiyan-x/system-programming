@@ -264,6 +264,7 @@ bool exec_nth_command(size_t cmd_line_number) {
 			return false;
 		} else {
 			int logic_operator = cmd_validator(cmd_line);
+			print_command(cmd_line);
 			command_dispatcher(cmd_line, logic_operator);
 			return true;
 		}
@@ -286,6 +287,7 @@ bool exec_nth_command(size_t cmd_line_number) {
 			return false;
 		} else {
 			int logic_operator = cmd_validator(cmd_line);
+			print_command(cmd_line);
 			command_dispatcher(cmd_line, logic_operator);
 			return true;
 		}
@@ -350,6 +352,7 @@ bool exec_prefix_command(char* cmd) {
 			strcpy(cmd_line, *((char**)_it));
 			cmd_line[strlen(cmd_line) - 1] = '\0';
 			int logic_operator = cmd_validator(cmd_line);
+			print_command(cmd_line);
 			command_dispatcher(cmd_line, logic_operator);
 			vector_destroy(compiled_history);
 			return true;	
@@ -379,6 +382,7 @@ bool exec_prefix_command(char* cmd) {
 			return false;	
 		} else {
 			int logic_operator = cmd_validator(cmd_line);
+			print_command(cmd_line);
 			command_dispatcher(cmd_line, logic_operator);
 			return true;
 		}
@@ -391,6 +395,7 @@ bool exec_prefix_command(char* cmd) {
 			strcpy(cmd_line, *((char**)_it));
 			cmd_line[strlen(cmd_line) - 1] = '\0';
 			int logic_operator = cmd_validator(cmd_line);
+			print_command(cmd_line);
 			command_dispatcher(cmd_line, logic_operator);
 			return true;
 		}	
@@ -417,6 +422,7 @@ bool exec_prefix_command(char* cmd) {
 			return false;
 		} else {
 			int logic_operator = cmd_validator(cmd_line);
+			print_command(cmd_line);
 			command_dispatcher(cmd_line, logic_operator);
 			return true;
 		}
