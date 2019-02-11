@@ -222,7 +222,7 @@ void exec_print_history() {
 		char cmd_line[1024];
 		size_t cmd_line_number = 0;
 		while (fgets(cmd_line, sizeof(cmd_line), HISTORY_FILE_POINTER)) {
-			printf("%zu\t%s", cmd_line_number, cmd_line);
+			print_history_line(cmd_line_number, cmd_line);
 			cmd_line_number++;
 		}
 	} else {
@@ -470,6 +470,9 @@ int command_dispatcher(char* cmd, int logic_operator) {
 		} else {
 			////////////////////////////////////////////////////
 			/////////////////////EXTERNAL///////////////////////
+			if (!LOGIC) {
+				log_cmd(cmd);
+			}
 			bool BACKGROUND = false;
 			if (cmd[cmd_len - 1] == '&') {
 				BACKGROUND = true;
@@ -700,7 +703,9 @@ int shell(int argc, char *argv[]) {
 		}
 		//Change the newline char to NUL char	
 		cmd[strlen(cmd) - 1] = '\0';	
-	
+		if (F_FLAG) {
+			print_command(cmd);
+		}	
 		//Validate cmd
 		//0: NO Logic Operator
 		//1: AND
