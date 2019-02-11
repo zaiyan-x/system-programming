@@ -627,7 +627,7 @@ int command_dispatcher(char* cmd, int logic_operator) {
 		LOGIC = true;
 		char* semi_col_pos = strstr(cmd, ";");
 		char* second_cmd_start = semi_col_pos + 2;
-		size_t first_cmd_len = semi_col_pos - cmd - 1;
+		size_t first_cmd_len = semi_col_pos - cmd;
 		char first_cmd[1024];
 		char second_cmd[1024];
 		strncpy(first_cmd, cmd, first_cmd_len);
