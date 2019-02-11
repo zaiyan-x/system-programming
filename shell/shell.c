@@ -78,7 +78,10 @@ void signal_handler(int signal) {
 	if (signal == SIGINT) {
 		return;
 	} else if (signal == SIGCHLD) {
-		// TODO
+		while (waitpid((pid_t)(-1), 0, WNOHANG) > 0) {
+			continue;
+		}
+		return;
 	} else {
 		return;
 	}
@@ -289,6 +292,24 @@ bool exec_nth_command(size_t cmd_line_number) {
 	}
 }
 
+char** external_command_parser(char* cmd) {
+	sstring* cmd_args = cstr_to_sstring(cmd);
+	vector* parsed_cmd = sstring_split(cmd_args, ' ');
+	free(cmd_args);
+	cmd_args = NULL;
+	char** parsed_args = malloc((vector_size(parsed_cmd) + 1) * sizeof(char*));
+	void** _it = vector_begin(parsed_cmd);
+	void** _end = vector_end(parsed_cmd);
+	size_t i = 0;
+	for (; _it != _end; _it++) {
+		parsed_args[i] = strdup(*((char**)_it));
+		i++;
+	}
+	vector_destroy(parsed_cmd);
+	parsed_args[i] = NULL;
+	return parsed_args;
+}
+
 bool exec_prefix_command(char* cmd) {
 	size_t cmd_len = strlen(cmd);
 	bool POUND_ONLY = false;
@@ -394,7 +415,7 @@ bool exec_prefix_command(char* cmd) {
 int command_dispatcher(char* cmd, int logic_operator) {
 	size_t cmd_len = strlen(cmd);
 	if (cmd_len == 0) {
-		return 1;
+		return -1;
 	}
 	if (logic_operator == 0) { // NO LOGIC OPERATOR
 		if (cmd[0] == 'c' && cmd[1] == 'd' && cmd[2] == 32) {
@@ -436,7 +457,16 @@ int command_dispatcher(char* cmd, int logic_operator) {
 		} else if (cmd[0] == 'e' && cmd[1] == 'x' && cmd[2] == 'i' && cmd[3] == 't') { // exit
 			return 0;
 		} else {
-			//external
+			////////////////////////////////////////////////////
+			/////////////////////EXTERNAL///////////////////////
+			fflush(stdout); //flush
+			int status;
+			pid_t pid = fork();
+			if (pid < 0) { // fork failed
+				print_fork_failed();
+				return -1;
+			} else if (pid == 0) { //child process
+				 
 		}							
 	} else if (logic_operator == 1) { // AND
 		LOGIC = true;
