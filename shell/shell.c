@@ -639,8 +639,9 @@ int command_dispatcher(char* cmd, int logic_operator) {
 			return -1;
 		} else {//command chaining VALID
 			log_cmd(cmd);
-			if (command_dispatcher(first_cmd, 0) == -1 ||
-			command_dispatcher(second_cmd, 0) == -1) {
+			int first_cmd_ret_val = command_dispatcher(first_cmd, 0);
+			int second_cmd_ret_val = command_dispatcher(second_cmd, 0);
+			if (first_cmd_ret_val == -1 || second_cmd_ret_val == -1) {
 				LOGIC = false;
 				return -1;
 			} else {
