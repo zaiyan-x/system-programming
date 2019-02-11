@@ -129,6 +129,7 @@ void shell_cleaner() {
 		vector_destroy(LOG);
 		LOG = NULL;
 	}
+	child_process_reaper();
 	if (PROC) {
 		vector_destroy(PROC);
 		PROC = NULL;
