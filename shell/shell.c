@@ -39,7 +39,9 @@ typedef struct process {
     pid_t pid;
 } process;
 
+//FUNC DECLARATION
 int command_dispatcher(char*, int);
+void unlog_process(pid_t);
 
 bool argc_validator(int argc) {
 	if (argc == 1 || argc == 3 || argc == 5) {
@@ -96,7 +98,7 @@ void child_process_reaper() {
 	size_t i;
 	pid_t child_pid;
 	for (i = 0; i < vector_size(PROC); i++) {
-		child_pid = (pid_t) (*vector_get(PROC, i));
+		child_pid = (pid_t) (* (unsigned int*)vector_get(PROC, i));
 		kill(child_pid, SIGKILL);
 	}
 	return;
@@ -449,7 +451,7 @@ bool exec_prefix_command(char* cmd) {
 void unlog_process(pid_t pid) {
 	size_t i;
 	for (i = 0; i < vector_size(PROC); i++) {
-		if ((*vector_get(PROC, i)) == (unsigned int) pid) {
+		if ((*(unsigned int *)vector_get(PROC, i)) == (unsigned int) pid) {
 			vector_erase(PROC, i);
 		}
 	}
@@ -512,7 +514,7 @@ int command_dispatcher(char* cmd, int logic_operator) {
 			int status;
 			pid_t pid = fork();
 			//REMEMBER CHLD PID
-			vector_push_back(PROC, (unsigned int) pid);
+			vector_push_back(PROC, &pid);
 			if (pid < 0) { // fork failed
 				print_fork_failed();
 				return -1;
@@ -691,7 +693,7 @@ bool log_setup() {
 }
 			
 void process_vector_setup() {
-	PROC = unsigne_int_vector_create();
+	PROC = unsigned_int_vector_create();
 	return;
 }
 	
