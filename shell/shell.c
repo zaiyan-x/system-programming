@@ -481,7 +481,6 @@ int command_dispatcher(char* cmd, int logic_operator) {
 				BACKGROUND = true;
 			}	
 			log_cmd(cmd);
-			fflush(stdout); //flush
 			int status;
 			pid_t pid = fork();
 			if (pid < 0) { // fork failed
@@ -691,12 +690,19 @@ int shell(int argc, char *argv[]) {
 		if ((cwd = getcwd(cwd, cwd_size))) {
 			print_prompt(cwd, pid);
 		}
-		if (getline(&cmd, &cmd_size, stdin) == -1) {
-			//EOF is reached
-			prompt_cleaner(cmd, cwd);
-			terminate_shell();	
+		if (F_FLAG) {
+			if (getline(&cmd, &cmd_size, COMMAND_FILE_POINTER) == -1) {
+				//EOF is reached
+				prompt_cleaner(cmd, cwd);
+				terminate_shell();
+			}
+		} else {
+			if (getline(&cmd, &cmd_size, stdin) == -1) {
+				//EOF is reached
+				prompt_cleaner(cmd, cwd);
+				terminate_shell();	
+			}
 		}
-		
 		//Change the newline char to NUL char	
 		cmd[strlen(cmd) - 1] = '\0';	
 	
