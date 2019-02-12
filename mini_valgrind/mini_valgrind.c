@@ -52,7 +52,7 @@ void *mini_realloc(void *ptr, size_t request_size, const char *filename,
 		mini_free(ptr);
 		return NULL;
 	}
-	meta_data* block_metadata = (meta_data*) ptr - sizeof(meta_data);
+	meta_data* block_metadata = (meta_data*) ptr - 1;
 	meta_data* curr = head;
 	meta_data* prev = NULL;	
 	while (curr != NULL && curr != block_metadata) {
@@ -98,7 +98,7 @@ void mini_free(void *ptr) {
 		invalid_addresses++;
 		return;
 	}
-	meta_data* block_metadata = (meta_data*) ptr - sizeof(meta_data);
+	meta_data* block_metadata = (meta_data*) ptr - 1;
 	if (block_metadata == head) {
 		total_memory_freed += head->request_size;
 		head = head->next;
