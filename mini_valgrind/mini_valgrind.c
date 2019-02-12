@@ -1,6 +1,7 @@
 /**
  * Mini Valgrind Lab
  * CS 241 - Spring 2019
+ * COLLAB with Eric Wang - wcwang2 :)
  */
  
 #include "mini_valgrind.h"
