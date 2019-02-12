@@ -27,7 +27,7 @@ void *mini_malloc(size_t request_size, const char *filename,
 	alloc_block->next = head;
 	head = alloc_block;
 	total_memory_requested += request_size;
-    return head + 1;
+    return (alloc_block + 1);
 }
 
 void *mini_calloc(size_t num_elements, size_t element_size,
@@ -66,7 +66,7 @@ void *mini_realloc(void *ptr, size_t request_size, const char *filename,
 	
 	int realloc_size = ((int) curr->request_size) - ((int) request_size);
 	meta_data* realloc_block = realloc(curr, request_size + sizeof(meta_data));
-	
+	curr = NULL; //defunct curr ptr	
 	//UPDATE SIZE
 	realloc_block->request_size = request_size;
 	realloc_block->filename = filename;
@@ -80,14 +80,14 @@ void *mini_realloc(void *ptr, size_t request_size, const char *filename,
 
 	//UPDATE GLOBALs
 	if (realloc_size < 0) {//shrink
-		total_memory_requested = total_memory_requested - realloc_size;
+		total_memory_requested -= realloc_size;
 	} else if (realloc_size > 0) {
-		total_memory_freed = total_memory_freed + realloc_size;
+		total_memory_freed += realloc_size;
 	} else { //NOTHING HAPPENED
 		//DO NOTHING
 	}
 
-	return realloc_block + 1;
+	return (realloc_block + 1);
 }
 
 void mini_free(void *ptr) {
@@ -100,9 +100,10 @@ void mini_free(void *ptr) {
 	}
 	meta_data* block_metadata = (meta_data*) ptr - sizeof(meta_data);
 	if (block_metadata == head) {
-		total_memory_freed = total_memory_freed + block_metadata->request_size;
+		total_memory_freed += head->request_size;
 		head = head->next;
 		free(block_metadata);
+		block_metadata = NULL;
 		return;
 	}
 	meta_data* curr = head;
@@ -111,11 +112,13 @@ void mini_free(void *ptr) {
 		prev = curr;
 		curr = curr->next;
 	}
-	if (prev == NULL) {//WHILE NO CHANGE
+	if (curr == NULL) {//WHILE NO CHANGE
 		invalid_addresses++;
 	} else {
-		total_memory_freed = total_memory_freed + block_metadata->request_size;
+		total_memory_freed += block_metadata->request_size;
 		prev->next = block_metadata->next;
 		free(block_metadata);
+		block_metadata = NULL;
 	}
+	return;
 }
