@@ -691,6 +691,7 @@ int command_dispatcher(char* cmd, int logic_operator) {
 			} else {
 				return -1; //no pid found
 			}	
+		} else if (cmd[0] == 'k' && cmd[1] == 'i' && cmd[2] == 'l' && cmd[3] == 'l') { //kill 
 		} else {
 			////////////////////////////////////////////////////
 			/////////////////////EXTERNAL///////////////////////
