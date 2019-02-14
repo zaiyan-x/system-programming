@@ -440,29 +440,55 @@ bool exec_nth_command(size_t cmd_line_number) {
 			return true;
 		}
 	}
-}
+} 
 
-void exec_pfd(pid_t pid) {
+bool exec_pfd(pid_t pid) {
 	//PRINT FD HEADER
 	print_process_fd_info_header();
 	
 	char curr_addr[PATH_MAX];
+	char curr_line[2048];
 	size_t i;
 	int curr_pid;
 	DIR* curr_dir = NULL;
 	struct dirent * dir;
+	FILE* curr_fd_file = NULL;
+	size_t fd_no = 0;
+	size_t file_pos = 0;
+	char realpath[PATH_MAX];
+	ssize_t readlink_len = 0;
 	for (i = 0; i < vector_size(PROC); i++) {
 		curr_pid = *(int *) vector_get(PROC, i);
-		sprintf(curr_addr, "/proc/%d/fdinfo", curr_pid);
-		curr_dir = opendir(curr_addr);
-		seekdir(curr_dir, 2);//SEEK DIR pointer to 2nd (excluding . and ..)		
-		while ((dir = readdir(curr_dir)) != NULL) {
-			puts(dir->d_name);
-			sprintf(curr_addr, "/proc/%d/fdinfo/%s", curr_pid, dir->d_name);
-			//TODO	
-		}	
-		closedir(curr_dir);
+		if (curr_pid != pid) {
+			continue;
+		} else {
+			sprintf(curr_addr, "/proc/%d/fdinfo", curr_pid);
+			curr_dir = opendir(curr_addr);
+			seekdir(curr_dir, 2);//SEEK DIR pointer to 2nd (excluding . and ..)	
+			while ((dir = readdir(curr_dir)) != NULL) {
+				fd_no = strtoul(dir->d_name, NULL, 0);
+				sprintf(curr_addr, "/proc/%d/fdinfo/%zu", curr_pid, fd_no);
+				curr_fd_file = fopen(curr_addr, "r");
+				fgets(curr_line, sizeof(curr_line), curr_fd_file);
+				sscanf(curr_line, "%*s %zd", &file_pos);
+				sprintf(curr_addr, "/proc/%d/fd/%zu", curr_pid, fd_no);
+				readlink_len = readlink(curr_addr, realpath, sizeof(realpath));
+				if (readlink_len == -1) {
+					break;
+				} else {
+					realpath[readlink_len] = '\0';
+				}
+				print_process_fd_info(fd_no, file_pos, realpath);
+				//CLEAN UP
+				fclose(curr_fd_file);	
+			}
+			//GET READY TO RETURN TO MOTHERSHIP
+			closedir(curr_dir);
+			return true;
+		}
 	}
+	print_no_process_found((int) pid);
+	return false;
 }
 
 char** external_command_parser(char* cmd) {
@@ -660,8 +686,11 @@ int command_dispatcher(char* cmd, int logic_operator) {
 				return -1;
 			}
 			pid_t pid = atoi(cmd + 4);
-			exec_pfd(pid);
-				
+			if (exec_pfd(pid)) {
+				return 1; //pfd success!
+			} else {
+				return -1; //no pid found
+			}	
 		} else {
 			////////////////////////////////////////////////////
 			/////////////////////EXTERNAL///////////////////////
