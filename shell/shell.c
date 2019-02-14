@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <limits.h>
 #include <signal.h>
 #include <string.h>
 #include <ctype.h>
@@ -34,6 +35,7 @@ static bool F_FLAG = false;
 static bool LOGIC = false;
 
 static vector* PROC = NULL;
+static vector* CMD = NULL;
 typedef struct process {
     char *command;
     pid_t pid;
@@ -125,6 +127,14 @@ void shell_cleaner() {
 		free(COMMAND_PATH);
 		COMMAND_PATH = NULL;
 	}
+	if (HISTORY_FILE_POINTER) {
+		fclose(HISTORY_FILE_POINTER);
+		HISTORY_FILE_POINTER = NULL;
+	}
+	if (COMMAND_FILE_POINTER) {
+		fclose(COMMAND_FILE_POINTER);
+		COMMAND_FILE_POINTER = NULL;
+	}
 	if (LOG) {
 		vector_destroy(LOG);
 		LOG = NULL;
@@ -133,6 +143,10 @@ void shell_cleaner() {
 	if (PROC) {
 		vector_destroy(PROC);
 		PROC = NULL;
+	}
+	if (CMD) {
+		vector_destroy(CMD);
+		CMD = NULL;
 	}
 	return;
 }
@@ -220,6 +234,121 @@ bool exec_cd(char* cmd) {
 		return false;
 	}
 	return true;
+}
+
+size_t cmd_locator(unsigned pid) {
+	size_t i = 0;
+	for (i = 0; i < vector_size(PROC); i++) {
+		if ((*(unsigned int *)vector_get(PROC, i)) == (unsigned int) pid) {
+			break;
+		}
+	}
+	return i;
+}
+
+/*
+typedef struct process_info {
+    int pid;
+    long int nthreads;
+    unsigned long int vsize;
+    char state;
+    char *start_str;
+    char *time_str;
+    char *command;
+} process_info;
+*/
+void exec_ps() {
+	size_t i;
+	
+
+	size_t PID_POS = 0;
+	size_t NUM_THREADS_POS = 19;
+	size_t VSIZE_POS = 22;
+	size_t STATE_POS = 2;
+	size_t START_POS = 21;
+	size_t UTIME_POS = 13;
+	size_t STIME_POS = 14;
+	size_t CUTIME_POS = 15;
+	size_t CSTIME_POS = 16;
+	char curr_addr[PATH_MAX];
+
+	//Time Char*
+	char time_str[2048];
+	char exec_time_str[2048];
+	
+	//FOR reading from PATH FILE
+	char* curr_info = NULL; //TODO: free
+	size_t curr_info_size = 0;
+	
+	FILE * proc_stat;
+	size_t curr_stat_index;
+	process_info* pinfo = malloc(sizeof(process_info));
+	print_process_info_header(); //PRINT HEADER
+	for (i = 0; i < vector_size(PROC); i++) {
+		//reset line number to ZERO
+		curr_stat_index = 0;
+
+		unsigned curr = *(unsigned *)vector_get(PROC, i);
+		sprintf(curr_addr, "/proc/%u/stat", curr);
+		
+		if (access(curr_addr, R_OK) == -1) { // can't access virtual /proc file
+			return;
+		}
+
+		if ((proc_stat = fopen(curr_addr, "r")) == NULL) { //cannot open virtual file
+			return;
+		}
+		
+		getline(&curr_info, &curr_info_size, proc_stat);
+		sstring* info_sstring = cstr_to_sstring(curr_info); //TODO: free
+		
+		//CLEAN UP curr_info
+		free(curr_info);
+		curr_info = NULL;	
+			 
+		vector* info_vector = sstring_split(info_sstring, ' '); //TODO: free
+
+		//CLEAN UP info_sstring
+		sstring_destroy(info_sstring);
+		info_sstring = NULL;
+
+		//PID
+		pinfo->pid = atoi((char*)(vector_get(info_vector, PID_POS)));
+		//NTHREADS
+		pinfo->nthreads =  atol((char*)(vector_get(info_vector, NUM_THREADS_POS)));
+		//VSIZE
+		pinfo->vsize = strtoul((char*) (vector_get(info_vector, VSIZE_POS)), NULL, 0) / 1000;
+		//STATE
+		pinfo->state = * (char*) (vector_get(info_vector, STATE_POS));
+		//START
+		time_t time = strtoull((char*) (vector_get(info_vector, START_POS)), NULL, 0) / sysconf(_SC_CLK_TCK);
+		struct tm * time_struct = localtime(&time);
+		time_struct_to_string(time_str, sizeof(time_str), time_struct);
+		pinfo->start_str = time_str;	
+
+
+		//TIME
+		time_t utime = strtoull((char*) (vector_get(info_vector, UTIME_POS)), NULL, 0) / sysconf(_SC_CLK_TCK);
+		time_t stime = strtoull((char*) (vector_get(info_vector, STIME_POS)), NULL, 0) / sysconf(_SC_CLK_TCK);
+		time_t cutime = strtoull((char*) (vector_get(info_vector, CUTIME_POS)), NULL, 0) / sysconf(_SC_CLK_TCK);
+		time_t cstime = strtoull((char*) (vector_get(info_vector, CSTIME_POS)), NULL, 0) / sysconf(_SC_CLK_TCK);
+		time_t total_exec_time = utime + stime + cutime + cstime;
+		struct tm * total_exec_time_struct = localtime(&total_exec_time);
+		time_struct_to_string(exec_time_str, sizeof(exec_time_str), total_exec_time_struct);
+		pinfo->time_str = exec_time_str;
+
+		//COMMAND
+		pinfo->command = vector_get(CMD, cmd_locator((unsigned) pinfo->pid));
+
+
+		//PRINT
+		print_process_info(pinfo);	
+
+		//CLEAN UP//
+		vector_destroy(info_vector);
+		fclose(proc_stat);
+	}
+	free(pinfo);
 }
 
 void print_current_shell_session_log() {
@@ -456,6 +585,7 @@ void unlog_process(pid_t pid) {
 	for (i = 0; i < vector_size(PROC); i++) {
 		if ((*(unsigned int *)vector_get(PROC, i)) == (unsigned int) pid) {
 			vector_erase(PROC, i);
+			vector_erase(CMD, i);
 		}
 	}
 }
@@ -501,6 +631,9 @@ int command_dispatcher(char* cmd, int logic_operator) {
 			}
 		} else if (cmd[0] == 'e' && cmd[1] == 'x' && cmd[2] == 'i' && cmd[3] == 't') { // exit
 			return 0;
+		} else if (cmd[0] == 'p' && cmd[1] == 's') {
+			exec_ps();
+			return 1;
 		} else {
 			////////////////////////////////////////////////////
 			/////////////////////EXTERNAL///////////////////////
@@ -515,6 +648,7 @@ int command_dispatcher(char* cmd, int logic_operator) {
 			pid_t pid = fork();
 			//REMEMBER CHLD PID
 			vector_push_back(PROC, &pid);
+			vector_push_back(CMD, cmd); 
 			if (pid < 0) { // fork failed
 				print_fork_failed();
 				return -1;
@@ -699,6 +833,7 @@ bool log_setup() {
 			
 void process_vector_setup() {
 	PROC = unsigned_int_vector_create();
+	CMD = string_vector_create();
 	return;
 }
 	
