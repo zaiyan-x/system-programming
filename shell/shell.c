@@ -10,6 +10,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <sys/wait.h>
+#include <dirent.h>
  
 #include "format.h"
 #include "shell.h"
@@ -281,13 +282,9 @@ void exec_ps() {
 	size_t curr_info_size = 0;
 	
 	FILE * proc_stat;
-	size_t curr_stat_index;
 	process_info* pinfo = malloc(sizeof(process_info));
 	print_process_info_header(); //PRINT HEADER
 	for (i = 0; i < vector_size(PROC); i++) {
-		//reset line number to ZERO
-		curr_stat_index = 0;
-
 		unsigned curr = *(unsigned *)vector_get(PROC, i);
 		sprintf(curr_addr, "/proc/%u/stat", curr);
 		
@@ -442,6 +439,29 @@ bool exec_nth_command(size_t cmd_line_number) {
 			command_dispatcher(cmd_line, logic_operator);
 			return true;
 		}
+	}
+}
+
+void exec_pfd(pid_t pid) {
+	//PRINT FD HEADER
+	print_process_fd_info_header();
+	
+	char curr_addr[PATH_MAX];
+	size_t i;
+	int curr_pid;
+	DIR* curr_dir = NULL;
+	struct dirent * dir;
+	for (i = 0; i < vector_size(PROC); i++) {
+		curr_pid = *(int *) vector_get(PROC, i);
+		sprintf(curr_addr, "/proc/%d/fdinfo", curr_pid);
+		curr_dir = opendir(curr_addr);
+		seekdir(curr_dir, 2);//SEEK DIR pointer to 2nd (excluding . and ..)		
+		while ((dir = readdir(curr_dir)) != NULL) {
+			puts(dir->d_name);
+			sprintf(curr_addr, "/proc/%d/fdinfo/%s", curr_pid, dir->d_name);
+			//TODO	
+		}	
+		closedir(curr_dir);
 	}
 }
 
@@ -634,6 +654,14 @@ int command_dispatcher(char* cmd, int logic_operator) {
 		} else if (cmd[0] == 'p' && cmd[1] == 's') {
 			exec_ps();
 			return 1;
+		} else if (cmd[0] == 'p' && cmd[1] == 'f' && cmd[2] == 'd') {
+			if (cmd[3] != ' ' || !number_validator(cmd + 4)) {
+				print_invalid_command(cmd);
+				return -1;
+			}
+			pid_t pid = atoi(cmd + 4);
+			exec_pfd(pid);
+				
 		} else {
 			////////////////////////////////////////////////////
 			/////////////////////EXTERNAL///////////////////////
