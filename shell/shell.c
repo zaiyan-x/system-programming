@@ -626,6 +626,30 @@ bool exec_prefix_command(char* cmd) {
 	}
 }
 
+bool exec_kill(pid_t pid) {
+	size_t i;
+	int kill_result;
+	bool FOUND = false;
+	for (i = 0; i < vector_size(PROC); i++) {
+		if (pid == *(int *) vector_get(PROC, i)) {
+			FOUND = true;
+			break;
+		}
+	}
+	if (!FOUND) {
+		print_no_process_found((int) pid);
+		return false;
+	} else {
+		if((kill_result = kill(pid, SIGTERM)) == 0) {
+			print_killed_process(pid, vector_get(CMD, i));
+			unlog_process(pid); //CLEAN UP PID in VECTOR (BOTH!)
+			return true;
+		} else {	
+			return false;
+		}
+	}
+}
+
 void unlog_process(pid_t pid) {
 	size_t i;
 	for (i = 0; i < vector_size(PROC); i++) {
@@ -692,6 +716,18 @@ int command_dispatcher(char* cmd, int logic_operator) {
 				return -1; //no pid found
 			}	
 		} else if (cmd[0] == 'k' && cmd[1] == 'i' && cmd[2] == 'l' && cmd[3] == 'l') { //kill 
+			if (cmd[4] != ' ' || !number_validator(cmd + 5)) {
+				print_invalid_command(cmd);
+				return -1;
+			}
+			pid_t pid = atoi(cmd + 5);
+			if (exec_kill(pid)) {
+				return 1; //kill success! //PRINT SUCCESS WITHIN exec_kill
+			} else {
+				//TODO DONT KNOW WHAT TO PRINT
+				return -1;
+			}
+
 		} else {
 			////////////////////////////////////////////////////
 			/////////////////////EXTERNAL///////////////////////
