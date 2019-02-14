@@ -728,6 +728,32 @@ int command_dispatcher(char* cmd, int logic_operator) {
 				return -1;
 			}
 
+		} else if (cmd[0] == 's' && cmd[1] == 't' && cmd[2] == 'o' && cmd[3] == 'p') { //stop 
+			if (cmd[4] != ' ' || !number_validator(cmd + 5)) {
+				print_invalid_command(cmd);
+				return -1;
+			}
+			pid_t pid = atoi(cmd + 5);
+			if (exec_kill(pid)) {
+				return 1; //kill success! //PRINT SUCCESS WITHIN exec_kill
+			} else {
+				//TODO DONT KNOW WHAT TO PRINT
+				return -1;
+			}
+
+		} else if (cmd[0] == 'c' && cmd[1] == 'o' && cmd[2] == 'n' && cmd[3] == 't') { //cont 
+			if (cmd[4] != ' ' || !number_validator(cmd + 5)) {
+				print_invalid_command(cmd);
+				return -1;
+			}
+			pid_t pid = atoi(cmd + 5);
+			if (exec_kill(pid)) {
+				return 1; //kill success! //PRINT SUCCESS WITHIN exec_kill
+			} else {
+				//TODO DONT KNOW WHAT TO PRINT
+				return -1;
+			}
+
 		} else {
 			////////////////////////////////////////////////////
 			/////////////////////EXTERNAL///////////////////////
