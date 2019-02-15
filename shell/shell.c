@@ -101,7 +101,7 @@ void child_process_reaper() {
 	size_t i;
 	pid_t child_pid;
 	for (i = 0; i < vector_size(PROC); i++) {
-		child_pid = (pid_t) (* (unsigned int*)vector_get(PROC, i));
+		child_pid = (pid_t) (* (unsigned int*)vector_get(PROC, i));	
 		kill(child_pid, SIGKILL);
 	}
 	return;
@@ -642,7 +642,7 @@ bool exec_kill(pid_t pid) {
 	} else {
 		if((kill_result = kill(pid, SIGTERM)) == 0) {
 			print_killed_process(pid, vector_get(CMD, i));
-			unlog_process(pid); //CLEAN UP PID in VECTOR (BOTH!)
+			//unlog_process(pid); //CLEAN UP PID in VECTOR (BOTH!)
 			return true;
 		} else {	
 			return false;
