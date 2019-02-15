@@ -747,9 +747,15 @@ int command_dispatcher(char* cmd, int logic_operator) {
 		} else if (cmd[0] == 'e' && cmd[1] == 'x' && cmd[2] == 'i' && cmd[3] == 't') { // exit
 			return 0;
 		} else if (cmd[0] == 'p' && cmd[1] == 's') {
+			if (!LOGIC) {
+				log_cmd(cmd);
+			} 
 			exec_ps();
 			return 1;
 		} else if (cmd[0] == 'p' && cmd[1] == 'f' && cmd[2] == 'd') {
+			if (!LOGIC) {
+				log_cmd(cmd);
+			}
 			if (cmd[3] != ' ' || !number_validator(cmd + 4)) {
 				print_invalid_command(cmd);
 				return -1;
@@ -760,7 +766,10 @@ int command_dispatcher(char* cmd, int logic_operator) {
 			} else {
 				return -1; //no pid found
 			}	
-		} else if (cmd[0] == 'k' && cmd[1] == 'i' && cmd[2] == 'l' && cmd[3] == 'l') { //kill 
+		} else if (cmd[0] == 'k' && cmd[1] == 'i' && cmd[2] == 'l' && cmd[3] == 'l') { //kill
+			if (!LOGIC) {
+				log_cmd(cmd);
+			} 
 			if (cmd[4] != ' ' || !number_validator(cmd + 5)) {
 				print_invalid_command(cmd);
 				return -1;
@@ -773,7 +782,10 @@ int command_dispatcher(char* cmd, int logic_operator) {
 				return -1;
 			}
 
-		} else if (cmd[0] == 's' && cmd[1] == 't' && cmd[2] == 'o' && cmd[3] == 'p') { //stop 
+		} else if (cmd[0] == 's' && cmd[1] == 't' && cmd[2] == 'o' && cmd[3] == 'p') { //stop
+			if (!LOGIC) {
+				log_cmd(cmd);
+			} 
 			if (cmd[4] != ' ' || !number_validator(cmd + 5)) {
 				print_invalid_command(cmd);
 				return -1;
@@ -786,7 +798,10 @@ int command_dispatcher(char* cmd, int logic_operator) {
 				return -1;
 			}
 
-		} else if (cmd[0] == 'c' && cmd[1] == 'o' && cmd[2] == 'n' && cmd[3] == 't') { //cont 
+		} else if (cmd[0] == 'c' && cmd[1] == 'o' && cmd[2] == 'n' && cmd[3] == 't') { //cont
+			if (!LOGIC) {
+				log_cmd(cmd);
+			} 
 			if (cmd[4] != ' ' || !number_validator(cmd + 5)) {
 				print_invalid_command(cmd);
 				return -1;
