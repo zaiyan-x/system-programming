@@ -650,6 +650,51 @@ bool exec_kill(pid_t pid) {
 	}
 }
 
+bool exec_stop(pid_t pid) {
+	size_t i;
+	int stop_result;
+	bool FOUND = false;
+	for (i = 0; i < vector_size(PROC); i++) {
+		if (pid == *(int *) vector_get(PROC, i)) {
+			FOUND = true;
+			break;
+		}
+	}
+	if (!FOUND) {
+		print_no_process_found((int) pid);
+		return false;
+	} else {
+		if((stop_result = kill(pid, SIGTSTP)) == 0) {
+			print_stopped_process(pid, vector_get(CMD, i));
+			return true;
+		} else {	
+			return false;
+		}
+	}
+}
+
+bool exec_cont(pid_t pid) {
+	size_t i;
+	int cont_result;
+	bool FOUND = false;
+	for (i = 0; i < vector_size(PROC); i++) {
+		if (pid == *(int *) vector_get(PROC, i)) {
+			FOUND = true;
+			break;
+		}
+	}
+	if (!FOUND) {
+		print_no_process_found((int) pid);
+		return false;
+	} else {
+		if((cont_result = kill(pid, SIGCONT)) == 0) {	
+			return true;
+		} else {	
+			return false;
+		}
+	}
+}
+
 void unlog_process(pid_t pid) {
 	size_t i;
 	for (i = 0; i < vector_size(PROC); i++) {
@@ -734,8 +779,8 @@ int command_dispatcher(char* cmd, int logic_operator) {
 				return -1;
 			}
 			pid_t pid = atoi(cmd + 5);
-			if (exec_kill(pid)) {
-				return 1; //kill success! //PRINT SUCCESS WITHIN exec_kill
+			if (exec_stop(pid)) {
+				return 1; //stop success! //PRINT SUCCESS WITHIN exec_stop
 			} else {
 				//TODO DONT KNOW WHAT TO PRINT
 				return -1;
@@ -747,8 +792,8 @@ int command_dispatcher(char* cmd, int logic_operator) {
 				return -1;
 			}
 			pid_t pid = atoi(cmd + 5);
-			if (exec_kill(pid)) {
-				return 1; //kill success! //PRINT SUCCESS WITHIN exec_kill
+			if (exec_cont(pid)) {
+				return 1;
 			} else {
 				//TODO DONT KNOW WHAT TO PRINT
 				return -1;
