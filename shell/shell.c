@@ -261,7 +261,7 @@ typedef struct process_info {
 void exec_ps() {
 	size_t i;
 	
-
+	size_t BTIME_POS = 8;
 	size_t PID_POS = 0;
 	size_t NUM_THREADS_POS = 19;
 	size_t VSIZE_POS = 22;
@@ -269,19 +269,50 @@ void exec_ps() {
 	size_t START_POS = 21;
 	size_t UTIME_POS = 13;
 	size_t STIME_POS = 14;
-	size_t CUTIME_POS = 15;
-	size_t CSTIME_POS = 16;
 	char curr_addr[PATH_MAX];
-
+	FILE* proc_stat;
 	//Time Char*
 	char time_str[2048];
 	char exec_time_str[2048];
-	
+	time_t time = 0;
+	struct tm * time_struct = NULL;
+	time_t utime = 0;
+	time_t stime = 0;
+	time_t total_exec_time = 0;
+	time_t exec_min = 0;
+	time_t exec_sec = 0;	
 	//FOR reading from PATH FILE
 	char* curr_info = NULL; //TODO: free
 	size_t curr_info_size = 0;
+
+	//CALCULATE BOOT TIME
+	time_t boot_time = 0;
+	sprintf(curr_addr, "/proc/stat");
+	if (access(curr_addr, R_OK) == -1) { //can't access /proc/stat
+		return;
+	}
+	if ((proc_stat = fopen(curr_addr, "r")) == NULL) { //cannot open virtual file
+		return;
+	}
+	for (i = 1; i <= BTIME_POS; i++) {
+		getline(&curr_info, &curr_info_size, proc_stat);
+		if (i != BTIME_POS) {
+			free(curr_info);
+			curr_info = NULL;
+			curr_info_size = 0;	
+			continue;
+		} else {
+			break;
+		}
+	}
+	sscanf(curr_info, "%*s %ld", &boot_time);	
+	//CLEAN UP
+	free(curr_info);
+	curr_info = NULL;
+	curr_info_size = 0;
+	fclose(proc_stat); //remember to fclose!
 	
-	FILE * proc_stat;
+	
 	process_info* pinfo = malloc(sizeof(process_info));
 	print_process_info_header(); //PRINT HEADER
 	for (i = 0; i < vector_size(PROC); i++) {
@@ -314,24 +345,24 @@ void exec_ps() {
 		//NTHREADS
 		pinfo->nthreads =  atol((char*)(vector_get(info_vector, NUM_THREADS_POS)));
 		//VSIZE
-		pinfo->vsize = strtoul((char*) (vector_get(info_vector, VSIZE_POS)), NULL, 0) / 1000;
+		pinfo->vsize = strtoul((char*) (vector_get(info_vector, VSIZE_POS)), NULL, 0) / 1024;
 		//STATE
 		pinfo->state = * (char*) (vector_get(info_vector, STATE_POS));
 		//START
-		time_t time = strtoull((char*) (vector_get(info_vector, START_POS)), NULL, 0) / sysconf(_SC_CLK_TCK);
-		struct tm * time_struct = localtime(&time);
+		time = strtol((char*) (vector_get(info_vector, START_POS)), NULL, 0) / sysconf(_SC_CLK_TCK) + boot_time;
+		time_struct = localtime(&time);
 		time_struct_to_string(time_str, sizeof(time_str), time_struct);
 		pinfo->start_str = time_str;	
 
 
 		//TIME
-		time_t utime = strtoull((char*) (vector_get(info_vector, UTIME_POS)), NULL, 0) / sysconf(_SC_CLK_TCK);
-		time_t stime = strtoull((char*) (vector_get(info_vector, STIME_POS)), NULL, 0) / sysconf(_SC_CLK_TCK);
-		time_t cutime = strtoull((char*) (vector_get(info_vector, CUTIME_POS)), NULL, 0) / sysconf(_SC_CLK_TCK);
-		time_t cstime = strtoull((char*) (vector_get(info_vector, CSTIME_POS)), NULL, 0) / sysconf(_SC_CLK_TCK);
-		time_t total_exec_time = utime + stime + cutime + cstime;
-		struct tm * total_exec_time_struct = localtime(&total_exec_time);
-		time_struct_to_string(exec_time_str, sizeof(exec_time_str), total_exec_time_struct);
+		utime = strtol((char*) (vector_get(info_vector, UTIME_POS)), NULL, 0) / sysconf(_SC_CLK_TCK);
+		stime = strtol((char*) (vector_get(info_vector, STIME_POS)), NULL, 0) / sysconf(_SC_CLK_TCK);
+
+		total_exec_time = utime + stime;
+		exec_min = (unsigned int) total_exec_time / 60;
+		exec_sec = (unsigned int) total_exec_time % 60;
+		execution_time_to_string(exec_time_str, sizeof(exec_time_str), exec_min, exec_sec);
 		pinfo->time_str = exec_time_str;
 
 		//COMMAND
