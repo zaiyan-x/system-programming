@@ -271,11 +271,11 @@ void exec_ps() {
 	size_t START_POS = 21;
 	size_t UTIME_POS = 13;
 	size_t STIME_POS = 14;
-	char curr_addr[PATH_MAX];
+	char curr_addr[PATH_MAX] = {};
 	FILE* proc_stat;
 	//Time Char*
-	char time_str[2048];
-	char exec_time_str[2048];
+	char time_str[2048] = {};
+	char exec_time_str[2048]= {};
 	time_t time = 0;
 	struct tm * time_struct = NULL;
 	time_t utime = 0;
@@ -351,15 +351,15 @@ void exec_ps() {
 		//STATE
 		pinfo->state = * (char*) (vector_get(info_vector, STATE_POS));
 		//START
-		time = strtol((char*) (vector_get(info_vector, START_POS)), NULL, 0) / sysconf(_SC_CLK_TCK) + boot_time;
+		time = atol((char*) (vector_get(info_vector, START_POS))) / sysconf(_SC_CLK_TCK) + boot_time;
 		time_struct = localtime(&time);
 		time_struct_to_string(time_str, sizeof(time_str), time_struct);
 		pinfo->start_str = time_str;	
 
 
 		//TIME
-		utime = strtol((char*) (vector_get(info_vector, UTIME_POS)), NULL, 0) / sysconf(_SC_CLK_TCK);
-		stime = strtol((char*) (vector_get(info_vector, STIME_POS)), NULL, 0) / sysconf(_SC_CLK_TCK);
+		utime = atol((char*) (vector_get(info_vector, UTIME_POS))) / sysconf(_SC_CLK_TCK);
+		stime = atol((char*) (vector_get(info_vector, STIME_POS))) / sysconf(_SC_CLK_TCK);
 
 		total_exec_time = utime + stime;
 		exec_min = (unsigned int) total_exec_time / 60;
@@ -369,7 +369,6 @@ void exec_ps() {
 
 		//COMMAND
 		pinfo->command = vector_get(CMD, cmd_locator((unsigned) pinfo->pid));
-
 
 		//PRINT
 		print_process_info(pinfo);	
@@ -1086,11 +1085,13 @@ int shell(int argc, char *argv[]) {
 	size_t i = 0;
 	while (argv[i]) {
 		strcat(shell_cmd, argv[i]);
-		strcat(shell_cmd, " ");
+		if (i != (size_t) (argc - 1)) {
+			strcat(shell_cmd, " ");
+		}
 		i++;
 	}
 	vector_push_back(PROC, &pid);
-	vector_push_back(CMD, argv[0]);
+	vector_push_back(CMD, shell_cmd);
 
 	char* cmd = NULL;
 	size_t cmd_size = 0;
