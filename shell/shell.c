@@ -140,6 +140,8 @@ void shell_cleaner() {
 		vector_destroy(LOG);
 		LOG = NULL;
 	}
+	pid_t shell_pid = getpid();
+	unlog_process(shell_pid);
 	child_process_reaper();
 	if (PROC) {
 		vector_destroy(PROC);
@@ -1078,11 +1080,15 @@ int shell(int argc, char *argv[]) {
 	//Get ready to prompt
 	log_setup();	
 	pid_t pid = getpid();
-
+	
+	//Append shell to PROC and CMD
+	vector_push_back(PROC, &pid);
+	vector_push_back(CMD, argv[0]); 
 	char* cmd = NULL;
 	size_t cmd_size = 0;
 	char* cwd = NULL;
 	size_t cwd_size = 0;
+
 	while (true) {
 		if ((cwd = getcwd(cwd, cwd_size))) {
 			print_prompt(cwd, pid);

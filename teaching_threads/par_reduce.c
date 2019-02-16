@@ -16,7 +16,9 @@
 typedef struct _par {
 	int * list;
 	int len;
-	reducer
+	reducer reduce_func;
+	
+}
 /* You should create a start routine for your threads. */
 
 int par_reduce(int *list, size_t list_len, reducer reduce_func, int base_case,
