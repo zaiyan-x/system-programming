@@ -1082,8 +1082,16 @@ int shell(int argc, char *argv[]) {
 	pid_t pid = getpid();
 	
 	//Append shell to PROC and CMD
+	char shell_cmd[1024] = {};
+	size_t i = 0;
+	while (argv[i]) {
+		strcat(shell_cmd, argv[i]);
+		strcat(shell_cmd, " ");
+		i++;
+	}
 	vector_push_back(PROC, &pid);
-	vector_push_back(CMD, argv[0]); 
+	vector_push_back(CMD, shell_cmd);
+
 	char* cmd = NULL;
 	size_t cmd_size = 0;
 	char* cwd = NULL;
