@@ -13,7 +13,10 @@
 #include "reducers.h"
 
 /* You might need a struct for each task ... */
-
+typedef struct _par {
+	int * list;
+	int len;
+	reducer
 /* You should create a start routine for your threads. */
 
 int par_reduce(int *list, size_t list_len, reducer reduce_func, int base_case,
