@@ -1090,7 +1090,7 @@ int shell(int argc, char *argv[]) {
 		i++;
 	}
 	vector_push_back(PROC, &pid);
-	vector_push_back(CMD, shell_cmd);
+	vector_push_back(CMD, argv[0]);
 
 	char* cmd = NULL;
 	size_t cmd_size = 0;
