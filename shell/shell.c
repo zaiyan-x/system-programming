@@ -262,7 +262,7 @@ typedef struct process_info {
 */
 void exec_ps() {
 	size_t i;
-	
+	size_t PINFO_COMMAND_LEN = 1024;
 	size_t BTIME_POS = 8;
 	size_t PID_POS = 0;
 	size_t NUM_THREADS_POS = 19;
@@ -335,7 +335,8 @@ void exec_ps() {
 		//CLEAN UP curr_info
 		free(curr_info);
 		curr_info = NULL;	
-			 
+		curr_info_size = 0;
+	 
 		vector* info_vector = sstring_split(info_sstring, ' '); //TODO: free
 
 		//CLEAN UP info_sstring
@@ -368,7 +369,9 @@ void exec_ps() {
 		pinfo->time_str = exec_time_str;
 
 		//COMMAND
-		pinfo->command = vector_get(CMD, cmd_locator((unsigned) pinfo->pid));
+		pinfo->command = malloc(PINFO_COMMAND_LEN * sizeof(char));
+		strncpy(pinfo->command, vector_get(CMD, cmd_locator((unsigned) pinfo->pid)), PINFO_COMMAND_LEN);
+		//pinfo->command = vector_get(CMD, cmd_locator((unsigned) pinfo->pid));
 
 		//PRINT
 		print_process_info(pinfo);	
@@ -376,6 +379,8 @@ void exec_ps() {
 		//CLEAN UP//
 		vector_destroy(info_vector);
 		fclose(proc_stat);
+		free(pinfo->command);
+		pinfo->command = NULL;
 	}
 	free(pinfo);
 }
