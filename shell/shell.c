@@ -679,7 +679,7 @@ bool exec_kill(pid_t pid) {
 	} else {
 		if((kill_result = kill(pid, SIGTERM)) == 0) {
 			print_killed_process(pid, vector_get(CMD, i));
-			//unlog_process(pid); //CLEAN UP PID in VECTOR (BOTH!)
+			unlog_process(pid); //CLEAN UP pid in vector (BOTH!)
 			return true;
 		} else {	
 			return false;
