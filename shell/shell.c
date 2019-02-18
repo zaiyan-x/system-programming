@@ -354,7 +354,7 @@ void exec_ps() {
 		//NTHREADS
 		pinfo->nthreads =  atol((char*)(vector_get(info_vector, NUM_THREADS_POS)));
 		//VSIZE
-		pinfo->vsize = (unsigned long) (atol((char*) (vector_get(info_vector, VSIZE_POS)), NULL, 0) / 1024);
+		pinfo->vsize = (unsigned long) (atol((char*) (vector_get(info_vector, VSIZE_POS))) / 1024);
 		//STATE
 		pinfo->state = * (char*) (vector_get(info_vector, STATE_POS));
 		//START
