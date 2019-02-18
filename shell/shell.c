@@ -278,11 +278,11 @@ void exec_ps() {
 	char exec_time_str[2048]= {};
 	time_t time = 0;
 	struct tm * time_struct = NULL;
-	time_t utime = 0;
-	time_t stime = 0;
-	time_t total_exec_time = 0;
-	time_t exec_min = 0;
-	time_t exec_sec = 0;	
+	unsigned long long utime = 0;
+	unsigned long long stime = 0;
+	unsigned long long total_exec_time = 0;
+	size_t exec_min = 0;
+	size_t exec_sec = 0;	
 	//FOR reading from PATH FILE
 	char* curr_info = NULL; //TODO: free
 	size_t curr_info_size = 0;
@@ -369,8 +369,8 @@ void exec_ps() {
 		stime = atol((char*) (vector_get(info_vector, STIME_POS))) / sysconf(_SC_CLK_TCK);
 
 		total_exec_time = utime + stime;
-		exec_min = (unsigned int) total_exec_time / 60;
-		exec_sec = (unsigned int) total_exec_time % 60;
+		exec_min = (size_t) total_exec_time / 60;
+		exec_sec = (size_t) total_exec_time % 60;
 		execution_time_to_string(exec_time_str, sizeof(exec_time_str), exec_min, exec_sec);
 		pinfo->time_str = exec_time_str;
 
