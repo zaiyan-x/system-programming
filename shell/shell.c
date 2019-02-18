@@ -288,7 +288,7 @@ void exec_ps() {
 	size_t curr_info_size = 0;
 
 	//CALCULATE BOOT TIME
-	time_t boot_time = 0;
+	long long unsigned boot_time = 0;
 	sprintf(curr_addr, "/proc/stat");
 	if (access(curr_addr, R_OK) == -1) { //can't access /proc/stat
 		return;
@@ -307,7 +307,13 @@ void exec_ps() {
 			break;
 		}
 	}
-	sscanf(curr_info, "%*s %ld", &boot_time);	
+	sstring* btime_sstring = cstr_to_sstring(curr_info); //TODO free
+	vector* btime_vector = sstring_split(btime_sstring, ' ');//TODO free
+
+	boot_time = (long long unsigned) atol(vector_get(btime_vector, 1));
+
+	sstring_destroy(btime_sstring);
+	vector_destroy(btime_vector);	
 	//CLEAN UP
 	free(curr_info);
 	curr_info = NULL;
@@ -348,7 +354,7 @@ void exec_ps() {
 		//NTHREADS
 		pinfo->nthreads =  atol((char*)(vector_get(info_vector, NUM_THREADS_POS)));
 		//VSIZE
-		pinfo->vsize = strtoul((char*) (vector_get(info_vector, VSIZE_POS)), NULL, 0) / 1024;
+		pinfo->vsize = (unsigned long) (atol((char*) (vector_get(info_vector, VSIZE_POS)), NULL, 0) / 1024);
 		//STATE
 		pinfo->state = * (char*) (vector_get(info_vector, STATE_POS));
 		//START
