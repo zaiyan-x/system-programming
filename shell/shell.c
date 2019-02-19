@@ -310,7 +310,7 @@ void exec_ps() {
 	sstring* btime_sstring = cstr_to_sstring(curr_info); //TODO free
 	vector* btime_vector = sstring_split(btime_sstring, ' ');//TODO free
 
-	boot_time = (long long unsigned) atol(vector_get(btime_vector, 1));
+	boot_time = (long unsigned) atol(vector_get(btime_vector, 1));
 
 	sstring_destroy(btime_sstring);
 	vector_destroy(btime_vector);	
@@ -358,16 +358,19 @@ void exec_ps() {
 		//STATE
 		pinfo->state = * (char*) (vector_get(info_vector, STATE_POS));
 		//START
-		time = atol((char*) (vector_get(info_vector, START_POS))) / sysconf(_SC_CLK_TCK) + boot_time;
+		time = atol((char*) (vector_get(info_vector, START_POS)));
+		time /= sysconf(_SC_CLK_TCK);
+		time += boot_time;
 		time_struct = localtime(&time);
 		time_struct_to_string(time_str, sizeof(time_str), time_struct);
 		pinfo->start_str = time_str;	
 
 
 		//TIME
-		utime = atol((char*) (vector_get(info_vector, UTIME_POS))) / sysconf(_SC_CLK_TCK);
-		stime = atol((char*) (vector_get(info_vector, STIME_POS))) / sysconf(_SC_CLK_TCK);
-
+		utime = atol((char*) (vector_get(info_vector, UTIME_POS)));
+		stime = atol((char*) (vector_get(info_vector, STIME_POS)));
+		utime /= sysconf(_SC_CLK_TCK);
+		stime /= sysconf(_SC_CLK_TCK);
 		total_exec_time = utime + stime;
 		exec_min = (size_t) total_exec_time / 60;
 		exec_sec = (size_t) total_exec_time % 60;
