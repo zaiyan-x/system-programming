@@ -26,7 +26,8 @@ static bool INITIALIZED = false;
 static size_t ROUNDUP = 15;
 static size_t MEM_ALIGN_SIZE = 16;
 
-/* Try to combine memory blocks
+/* 
+ * Try to combine memory blocks
  * This will return a mem_block*
  * Check mem_block * ptr->asize to see if the block is large enough
  * B->B->p->q->r->B->B
@@ -120,6 +121,18 @@ mem_block* mem_combine(mem_block* curr) {
 	}
 }
 
+
+/* 
+ * Try to frag one large data segment to desired size, dsize
+ * return: the ready to use mem_block *
+ * before return, the ready-to-use mem_block must be appropriately seperated
+ * and chained with previous and next blocks
+*/
+mem_block* mem_frag(mem_block* block_to_frag, size_t dsize) {
+
+
+}
+
 void* mem_dispense(size_t size) {
 	if (!INITIALIZED) {
 		size_t bsize =((size_t) ((size + DATA_SIZE + ROUNDUP) / MEM_ALIGN_SIZE) * MEM_ALIGN_SIZE);
@@ -136,22 +149,22 @@ void* mem_dispense(size_t size) {
 		return curr + DATA_SIZE;
 	}
 	//CHECK current mem_block linked list
-/*	mem_block* curr;
+	mem_block* curr;
 	bool found = false;
 	for (curr = HEAD; curr != NULL; curr = curr->next) {
 		if (curr->occupied) {
 			continue;
 		}
-		if (curr->bsize < size) {
+		if (curr->asize < size) {
 			continue;
 		}
-		if (curr->bsize == size) { //PERFECT FIT
-
+		if (curr->asize == size) { //PERFECT FIT
+			return curr + DATA_SIZE;
 		}
-		if (curr->bsize > size) { //TODO FRAG
-
+		if (curr->asize > size) {
+			return mem_frag(curr, size) + DATA_SIZE;
 		}
-	}*/
+	}
 	return NULL;	
 }
 
