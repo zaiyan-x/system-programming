@@ -66,7 +66,7 @@ mem_block* mem_combine(mem_block* curr) {
 			return curr_block;
 		// Combine none
 		} else if (curr->prev->occupied && curr->next->occupied) {
-			return curr;
+			return curr_block;
 		// Combine NEXT
 		} else if (curr->prev->occupied && !curr->next->occupied) {
 			if (curr->next->next == NULL) {
@@ -81,7 +81,32 @@ mem_block* mem_combine(mem_block* curr) {
 			curr_block->asize = total_user_size;
 			curr_block->bsize = total_block_size;
 			return curr_block;
+		// Combine PREV
+		} else {
+			total_user_size += DATA_SIZE + curr->prev->asize;
+			total_block_size += curr->prev->bsize;
+			curr_block = curr_block->prev;
+			memset(curr, 0, DATA_SIZE);
+			curr_block->asize = total_user_size;
+			curr_block->bsize = total_block_size;
+			return curr_block;
 		}
+	} else if (curr->next == NULL && curr->prev != NULL) {
+		if (curr->prev->occupied) {
+			return curr_block;
+		} else {
+			curr_block->prev->next = NULL;
+			total_user_size += DATA_SIZE + curr->prev->asize;
+			total_block_size += curr_block->prev->bsize;
+			curr_block = curr_block->prev;
+			memset(curr, 0, DATA_SIZE);
+			curr_block->asize = total_user_size;
+			curr_block->bsize = total_block_size;
+			return curr_block;
+		}
+	} else { //curr->next != NULL && curr->prev == NULL
+		
+
 	}
 }
 
