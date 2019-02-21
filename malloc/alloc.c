@@ -26,10 +26,6 @@ static bool INITIALIZED = false;
 static size_t ROUNDUP = 15;
 static size_t MEM_ALIGN_SIZE = 16;
 
-bool mem_frag(void* ptr, size_t desired) {
-	return true;
-}
-
 /* Try to combine memory blocks
  * This will return a mem_block*
  * Check mem_block * ptr->asize to see if the block is large enough
@@ -46,7 +42,7 @@ mem_block* mem_combine(mem_block* curr) {
 	
 	if (curr->prev == NULL && curr->next == NULL) {
 		return curr;
-	} else if (curr->prev != NULL && curr->next != NULL) }
+	} else if (curr->prev != NULL && curr->next != NULL) {
 		// Maximal case
 		// Combine all three chunks
 		if (!curr->prev->occupied && !curr->next->occupied) {
@@ -60,7 +56,7 @@ mem_block* mem_combine(mem_block* curr) {
 			total_block_size +=	curr->prev->bsize + curr->next->bsize;
 			curr_block = curr_block->prev;
 			memset(curr->next, 0, DATA_SIZE);
-			memset(curr. 0, DATA_SIZE);
+			memset(curr, 0, DATA_SIZE);
 			curr_block->asize = total_user_size;
 			curr_block->bsize = total_block_size;
 			return curr_block;
@@ -105,8 +101,22 @@ mem_block* mem_combine(mem_block* curr) {
 			return curr_block;
 		}
 	} else { //curr->next != NULL && curr->prev == NULL
-		
-
+		if (curr->next->occupied) {
+			return curr_block;
+		} else {
+			if (curr_block->next->next == NULL) {
+				curr_block->next = NULL;
+			} else {
+				curr_block->next = curr_block->next->next;
+				curr_block->next->next->prev = curr_block;
+			}
+			total_user_size += DATA_SIZE + curr->next->asize;
+			total_block_size += curr->next->bsize;
+			memset(curr->next, 0, DATA_SIZE);
+			curr_block->asize = total_user_size;
+			curr_block->bsize = total_block_size;
+			return curr_block;	
+		}	
 	}
 }
 
@@ -126,7 +136,7 @@ void* mem_dispense(size_t size) {
 		return curr + DATA_SIZE;
 	}
 	//CHECK current mem_block linked list
-	mem_block* curr;
+/*	mem_block* curr;
 	bool found = false;
 	for (curr = HEAD; curr != NULL; curr = curr->next) {
 		if (curr->occupied) {
@@ -141,7 +151,7 @@ void* mem_dispense(size_t size) {
 		if (curr->bsize > size) { //TODO FRAG
 
 		}
-	}
+	}*/
 	return NULL;	
 }
 
@@ -195,7 +205,7 @@ void *calloc(size_t num, size_t size) {
  * @see http://www.cplusplus.com/reference/clibrary/cstdlib/malloc/
  */
 void *malloc(size_t size) {
-    void* curr_block = mem_dispenser(size);
+    void* curr_block = mem_dispense(size);
     return curr_block;
 }
 
