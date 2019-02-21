@@ -7,6 +7,41 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdbool.h>
+
+typedef struct _mem_block {
+	struct _mem_block * prev;
+	struct _mem_block * next;
+	size_t block_size;
+	bool occupied;
+} mem_block;
+
+static void* HEAP_END_ADDR = NULL;
+static void* HEAP_START_ADDR = NULL;
+static mem_block* HEAD = NULL;
+static mem_block* TAIL = NULL;
+static size_t DATA_SIZE = sizeof(mem_block);
+static bool INITIALIZED = false;
+
+bool frag_mem(void* ptr, size_t desired) {
+	return true;
+}
+
+void* mem_dispenser(size_t size) {
+	if (!INITIALIZED) {
+		void* curr_block = sbrk(size + DATA_SIZE);
+		((mem_block*) curr_block)->block_size = size;
+		((mem_block*) curr_block)->prev = NULL;
+		((mem_block*) curr_block)->next = NULL;
+		((mem_block*) curr_block)->occupied = true;
+		HEAD = (mem_block*) curr_block;
+		TAIL = (mem_block*) curr_block;
+		HEAP_END_ADDR = curr_block + size + DATA_SIZE;
+		HEAP_START_ADDR = curr_block;
+		return curr_block;
+	}
+	return NULL;	
+}
 
 /**
  * Allocate space for array in memory
@@ -58,8 +93,8 @@ void *calloc(size_t num, size_t size) {
  * @see http://www.cplusplus.com/reference/clibrary/cstdlib/malloc/
  */
 void *malloc(size_t size) {
-    // implement malloc!
-    return NULL;
+    void* curr_block = mem_dispenser(size);
+    return curr_block;
 }
 
 /**
