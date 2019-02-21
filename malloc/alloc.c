@@ -12,33 +12,110 @@
 typedef struct _mem_block {
 	struct _mem_block * prev;
 	struct _mem_block * next;
-	size_t block_size;
+	size_t asize; //Asked or Requested size
+	size_t bsize; //Real b_lock size
 	bool occupied;
 } mem_block;
 
-static void* HEAP_END_ADDR = NULL;
-static void* HEAP_START_ADDR = NULL;
-static mem_block* HEAD = NULL;
-static mem_block* TAIL = NULL;
+static void* HEAP_END_ADDR = NULL; //The very start addr of mem chunk
+static void* HEAP_START_ADDR = NULL; //The very last bit of mem chunk
+static mem_block* HEAD = NULL; //The first mem_block
+static mem_block* TAIL = NULL; //The last mem_block
 static size_t DATA_SIZE = sizeof(mem_block);
 static bool INITIALIZED = false;
+static size_t ROUNDUP = 15;
+static size_t MEM_ALIGN_SIZE = 16;
 
-bool frag_mem(void* ptr, size_t desired) {
+bool mem_frag(void* ptr, size_t desired) {
 	return true;
 }
 
-void* mem_dispenser(size_t size) {
+/* Try to combine memory blocks
+ * This will return a mem_block*
+ * Check mem_block * ptr->asize to see if the block is large enough
+ * B->B->p->q->r->B->B
+*/
+mem_block* mem_combine(mem_block* curr) {
+	if (curr == NULL || curr->occupied) { //curr is not freed, directly return
+		return curr;
+	}
+	// mem_block attributes
+	mem_block* curr_block = curr;
+	size_t total_user_size = curr->asize;
+	size_t total_block_size = curr->bsize;
+	
+	if (curr->prev == NULL && curr->next == NULL) {
+		return curr;
+	} else if (curr->prev != NULL && curr->next != NULL) }
+		// Maximal case
+		// Combine all three chunks
+		if (!curr->prev->occupied && !curr->next->occupied) {
+			if (curr->next->next == NULL) {
+				curr_block->prev->next = NULL;
+			} else {
+				curr_block->prev->next = curr_block->next->next;
+				curr_block->next->next->prev = curr_block->prev;
+			}
+			total_user_size += DATA_SIZE + DATA_SIZE + curr->prev->asize + curr->next->asize;
+			total_block_size +=	curr->prev->bsize + curr->next->bsize;
+			curr_block = curr_block->prev;
+			memset(curr->next, 0, DATA_SIZE);
+			memset(curr. 0, DATA_SIZE);
+			curr_block->asize = total_user_size;
+			curr_block->bsize = total_block_size;
+			return curr_block;
+		// Combine none
+		} else if (curr->prev->occupied && curr->next->occupied) {
+			return curr;
+		// Combine NEXT
+		} else if (curr->prev->occupied && !curr->next->occupied) {
+			if (curr->next->next == NULL) {
+				curr_block->next = NULL;
+			} else {
+				curr_block->next = curr_block->next->next;
+				curr_block->next->next->prev = curr_block;
+			}
+			total_user_size += DATA_SIZE + curr->next->asize;
+			total_block_size += curr->next->bsize;
+			memset(curr->next, 0, DATA_SIZE);
+			curr_block->asize = total_user_size;
+			curr_block->bsize = total_block_size;
+			return curr_block;
+		}
+	}
+}
+
+void* mem_dispense(size_t size) {
 	if (!INITIALIZED) {
-		void* curr_block = sbrk(size + DATA_SIZE);
-		((mem_block*) curr_block)->block_size = size;
-		((mem_block*) curr_block)->prev = NULL;
-		((mem_block*) curr_block)->next = NULL;
-		((mem_block*) curr_block)->occupied = true;
-		HEAD = (mem_block*) curr_block;
-		TAIL = (mem_block*) curr_block;
-		HEAP_END_ADDR = curr_block + size + DATA_SIZE;
-		HEAP_START_ADDR = curr_block;
-		return curr_block;
+		size_t bsize =((size_t) ((size + DATA_SIZE + ROUNDUP) / MEM_ALIGN_SIZE) * MEM_ALIGN_SIZE);
+		void* curr = sbrk(bsize);
+		((mem_block*) curr)->asize = size;
+		((mem_block*) curr)->bsize = bsize;
+		((mem_block*) curr)->prev = NULL;
+		((mem_block*) curr)->next = NULL;
+		((mem_block*) curr)->occupied = true;
+		HEAD = (mem_block*) curr;
+		TAIL = (mem_block*) curr;
+		HEAP_END_ADDR = curr + bsize;
+		HEAP_START_ADDR = curr;
+		return curr + DATA_SIZE;
+	}
+	//CHECK current mem_block linked list
+	mem_block* curr;
+	bool found = false;
+	for (curr = HEAD; curr != NULL; curr = curr->next) {
+		if (curr->occupied) {
+			continue;
+		}
+		if (curr->bsize < size) {
+			continue;
+		}
+		if (curr->bsize == size) { //PERFECT FIT
+
+		}
+		if (curr->bsize > size) { //TODO FRAG
+
+		}
 	}
 	return NULL;	
 }
