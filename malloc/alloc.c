@@ -124,19 +124,46 @@ mem_block* mem_combine(mem_block* curr) {
 
 /* 
  * Try to frag one large data segment to desired size, dsize
- * return: the ready to use mem_block *
+ * return: the ready to use (void*) pointer
  * before return, the ready-to-use mem_block must be appropriately seperated
  * and chained with previous and next blocks
 */
-mem_block* mem_frag(mem_block* block_to_frag, size_t dsize) {
-
-
+void* mem_frag(mem_block* block_to_frag, size_t dsize) {
+	if (block_to_frag->asize - dsize <= DATA_SIZE) {
+		//The user space of the mem_block is only large enough to contain
+		//mem segment meta data
+		return ((void*) block_to_frag) + DATA_SIZE;
+	} else {
+		mem_block* new_mem_block = (void*) block_to_frag + DATA_SIZE + dsize;
+		new_mem_block->asize = block_to_frag->asize - dsize - DATA_SIZE;
+		new_mem_block->bsize = new_mem_block->asize + DATA_SIZE;
+		new_mem_block->prev = block_to_frag;
+		new_mem_block->next = block_to_frag->next;
+		new_mem_block->occupied = false;
+		if (block_to_frag->next != NULL) {
+			block_to_frag->next->prev = new_mem_block;
+		}
+		block_to_frag->next = new_mem_block;
+		return ((void*) block_to_frag) + DATA_SIZE;
+	}
 }
 
-void* mem_dispense(size_t size) {
+/*
+ * Only constructs new chunk in the end
+ * Result:
+ * 1. Old Tail->next will be new chunk
+ * 2. New Tail will be new chunk
+ * 3. New Tail->prev will be Old Tail
+ * 4. New Tail->next should be NULL
+*/
+void* mem_construct(size_t size) {
 	if (!INITIALIZED) {
+		INITIALIZED = true;
 		size_t bsize =((size_t) ((size + DATA_SIZE + ROUNDUP) / MEM_ALIGN_SIZE) * MEM_ALIGN_SIZE);
 		void* curr = sbrk(bsize);
+		if (curr == NULL) {
+			return NULL;
+		}
 		((mem_block*) curr)->asize = size;
 		((mem_block*) curr)->bsize = bsize;
 		((mem_block*) curr)->prev = NULL;
@@ -147,10 +174,30 @@ void* mem_dispense(size_t size) {
 		HEAP_END_ADDR = curr + bsize;
 		HEAP_START_ADDR = curr;
 		return curr + DATA_SIZE;
+	} else {
+		size_t bsize = ((size_t) ((size + DATA_SIZE + ROUNDUP) / MEM_ALIGN_SIZE) * MEM_ALIGN_SIZE);
+		void* curr = sbrk(bsize);
+		if (curr == NULL) {
+			return NULL;
+		}
+		((mem_block*) curr)->asize = size;
+		((mem_block*) curr)->bsize = bsize;
+		((mem_block*) curr)->prev = TAIL;
+		TAIL->next = (mem_block*) curr;
+		TAIL = (mem_block*) curr;
+		((mem_block*) curr)->next = NULL;
+		((mem_block*) curr)->occupied = true;
+		HEAP_END_ADDR = curr + bsize;
+		return curr + DATA_SIZE;
+	}
+}
+
+void* mem_dispense(size_t size) {
+	if (!INITIALIZED) {
+		return mem_construct(size);
 	}
 	//CHECK current mem_block linked list
 	mem_block* curr;
-	bool found = false;
 	for (curr = HEAD; curr != NULL; curr = curr->next) {
 		if (curr->occupied) {
 			continue;
@@ -159,13 +206,13 @@ void* mem_dispense(size_t size) {
 			continue;
 		}
 		if (curr->asize == size) { //PERFECT FIT
-			return curr + DATA_SIZE;
+			return ((void*)curr) + DATA_SIZE;
 		}
 		if (curr->asize > size) {
-			return mem_frag(curr, size) + DATA_SIZE;
+			return mem_frag(curr, size);
 		}
-	}
-	return NULL;	
+	}	
+	return mem_construct(size);	
 }
 
 /**
@@ -218,6 +265,9 @@ void *calloc(size_t num, size_t size) {
  * @see http://www.cplusplus.com/reference/clibrary/cstdlib/malloc/
  */
 void *malloc(size_t size) {
+	if (size == 0) {
+		return NULL;
+	}
     void* curr_block = mem_dispense(size);
     return curr_block;
 }
