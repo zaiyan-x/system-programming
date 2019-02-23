@@ -12,9 +12,7 @@
 typedef struct _mem_block {
 	struct _mem_block * prev;
 	struct _mem_block * next;
-	size_t asize; //Asked or Requested size
-	size_t bsize; //Real b_lock size
-	bool occupied;
+	size_t bsize; //block size
 } mem_block;
 
 static void* HEAP_END_ADDR = NULL; //The very start addr of mem chunk
@@ -25,6 +23,15 @@ static size_t DATA_SIZE = sizeof(mem_block);
 static bool INITIALIZED = false;
 static size_t ROUNDUP = 15;
 static size_t MEM_ALIGN_SIZE = 16;
+static mem_block* FORWARD = NULL;
+
+bool mem_check(mem_block* curr) {
+	return (curr->bsize) & 1;
+}
+
+size_t mem_realsize(mem_block* curr) {
+	return (curr->bsize) & ~1;
+}
 
 /* 
  * Try to combine memory blocks
@@ -33,92 +40,86 @@ static size_t MEM_ALIGN_SIZE = 16;
  * B->B->p->q->r->B->B
 */
 mem_block* mem_combine(mem_block* curr) {
-	if (curr == NULL || curr->occupied) { //curr is not freed, directly return
+	if (curr == TAIL && curr == HEAD) {
 		return curr;
-	}
-	// mem_block attributes
-	mem_block* curr_block = curr;
-	size_t total_user_size = curr->asize;
-	size_t total_block_size = curr->bsize;
-	
-	if (curr->prev == NULL && curr->next == NULL) {
-		return curr;
-	} else if (curr->prev != NULL && curr->next != NULL) {
-		// Maximal case
-		// Combine all three chunks
-		if (!curr->prev->occupied && !curr->next->occupied) {
-			if (curr->next->next == NULL) {
-				curr_block->prev->next = NULL;
-			} else {
-				curr_block->prev->next = curr_block->next->next;
-				curr_block->next->next->prev = curr_block->prev;
-			}
-			total_user_size += DATA_SIZE + DATA_SIZE + curr->prev->asize + curr->next->asize;
-			total_block_size +=	curr->prev->bsize + curr->next->bsize;
-			curr_block = curr_block->prev;
-			memset(curr->next, 0, DATA_SIZE);
-			memset(curr, 0, DATA_SIZE);
-			curr_block->asize = total_user_size;
-			curr_block->bsize = total_block_size;
-			return curr_block;
-		// Combine none
-		} else if (curr->prev->occupied && curr->next->occupied) {
-			return curr_block;
-		// Combine NEXT
-		} else if (curr->prev->occupied && !curr->next->occupied) {
-			if (curr->next->next == NULL) {
-				curr_block->next = NULL;
-			} else {
-				curr_block->next = curr_block->next->next;
-				curr_block->next->next->prev = curr_block;
-			}
-			total_user_size += DATA_SIZE + curr->next->asize;
-			total_block_size += curr->next->bsize;
-			memset(curr->next, 0, DATA_SIZE);
-			curr_block->asize = total_user_size;
-			curr_block->bsize = total_block_size;
-			return curr_block;
-		// Combine PREV
+	} else if (curr == TAIL && curr != HEAD) {
+		if (mem_check(curr->prev)) {
+			return curr;
 		} else {
-			total_user_size += DATA_SIZE + curr->prev->asize;
-			total_block_size += curr->prev->bsize;
-			curr_block = curr_block->prev;
+			curr->prev->bsize += mem_realsize(curr);
+			curr->prev->next = NULL;
+			TAIL = curr->prev;
 			memset(curr, 0, DATA_SIZE);
-			curr_block->asize = total_user_size;
-			curr_block->bsize = total_block_size;
-			return curr_block;
+			return TAIL;
 		}
-	} else if (curr->next == NULL && curr->prev != NULL) {
-		if (curr->prev->occupied) {
-			return curr_block;
+	} else if (curr == HEAD && curr != TAIL) {
+		if (mem_check(curr->next)) {
+			return curr;
 		} else {
-			curr_block->prev->next = NULL;
-			total_user_size += DATA_SIZE + curr->prev->asize;
-			total_block_size += curr_block->prev->bsize;
-			curr_block = curr_block->prev;
-			memset(curr, 0, DATA_SIZE);
-			curr_block->asize = total_user_size;
-			curr_block->bsize = total_block_size;
-			return curr_block;
-		}
-	} else { //curr->next != NULL && curr->prev == NULL
-		if (curr->next->occupied) {
-			return curr_block;
-		} else {
-			if (curr_block->next->next == NULL) {
-				curr_block->next = NULL;
+			if (curr->next == TAIL) {
+				curr->bsize += mem_realsize(curr->next);
+				curr->next = NULL;
+				memset(TAIL, 0, DATA_SIZE);
+				TAIL = curr;
+				return curr;
 			} else {
-				curr_block->next = curr_block->next->next;
-				curr_block->next->next->prev = curr_block;
+				mem_block* temp = curr->next;
+				curr->bsize += mem_realsize(curr->next);
+				curr->next = curr->next->next;
+				curr->next->prev = curr;
+				memset(temp, 0, DATA_SIZE);
+				return curr;
 			}
-			total_user_size += DATA_SIZE + curr->next->asize;
-			total_block_size += curr->next->bsize;
-			memset(curr->next, 0, DATA_SIZE);
-			curr_block->asize = total_user_size;
-			curr_block->bsize = total_block_size;
-			return curr_block;	
-		}	
-	}
+		}
+	} else { //curr != HEAD && curr != TAIL
+		bool prev_aval = !mem_check(curr->prev);
+		bool next_aval = !mem_check(curr->next);
+		if (!prev_aval && !next_aval) {
+			return curr;
+		} else if (!prev_aval && next_aval) {
+			if (curr->next == TAIL) {
+				curr->bsize += mem_realsize(curr->next);
+				curr->next = NULL;
+				memset(TAIL, 0, DATA_SIZE);
+				TAIL = curr;
+				return curr;
+			} else {
+				mem_block* temp = curr->next;
+				curr->bsize += mem_realsize(curr->next);
+				curr->next = curr->next->next;
+				curr->next->prev = curr;
+				memset(temp, 0, DATA_SIZE);
+				return curr;
+			}
+		} else if (prev_aval && !next_aval) {
+			curr->prev->next = curr->next;
+			curr->next->prev = curr->prev;
+			curr->prev->bsize += mem_realsize(curr);
+			mem_block* temp = curr;
+			curr = curr->prev;
+			memset(temp, 0, DATA_SIZE);
+			return curr;	
+		} else { //prev_aval && next_aval
+			if (curr->next == TAIL) {
+				curr->prev->next = NULL;
+				curr->prev->bsize += mem_realsize(curr) + mem_realsize(curr->next);
+				mem_block* temp = curr;
+				curr = curr->prev;
+				memset(temp->next, 0, DATA_SIZE);
+				memset(temp, 0, DATA_SIZE);
+				return curr;
+			} else {
+				curr->prev->next = curr->next->next;
+				curr->next->next->prev = curr->prev;
+				curr->prev->bsize += mem_realsize(curr) + mem_realsize(curr->next);
+				mem_block* temp = curr;
+				curr = curr->prev;
+				memset(temp->next, 0, DATA_SIZE);
+				memset(temp, 0, DATA_SIZE);
+				return curr;
+			}
+		}
+	}		
 }
 
 
@@ -129,22 +130,25 @@ mem_block* mem_combine(mem_block* curr) {
  * and chained with previous and next blocks
 */
 void* mem_frag(mem_block* block_to_frag, size_t dsize) {
-	if (block_to_frag->asize - dsize <= DATA_SIZE) {
+	block_to_frag->bsize |= 1;
+	if (block_to_frag->bsize - DATA_SIZE - dsize <= DATA_SIZE) {
 		//The user space of the mem_block is only large enough to contain
 		//mem segment meta data
-		return ((void*) block_to_frag) + DATA_SIZE;
+		return ((char*) block_to_frag) + DATA_SIZE;
 	} else {
-		mem_block* new_mem_block = (void*) block_to_frag + DATA_SIZE + dsize;
-		new_mem_block->asize = block_to_frag->asize - dsize - DATA_SIZE;
-		new_mem_block->bsize = new_mem_block->asize + DATA_SIZE;
+		mem_block* new_mem_block = (mem_block*) ((char*) block_to_frag + DATA_SIZE + dsize);
+		//FIRST memset all new block
+		memset(new_mem_block, 0, mem_realsize(block_to_frag) - DATA_SIZE - dsize);
+		new_mem_block->bsize = mem_realsize(block_to_frag) - DATA_SIZE - dsize;
 		new_mem_block->prev = block_to_frag;
 		new_mem_block->next = block_to_frag->next;
-		new_mem_block->occupied = false;
 		if (block_to_frag->next != NULL) {
 			block_to_frag->next->prev = new_mem_block;
+		} else {
+			TAIL = new_mem_block;
 		}
 		block_to_frag->next = new_mem_block;
-		return ((void*) block_to_frag) + DATA_SIZE;
+		return ((char*) block_to_frag) + DATA_SIZE;
 	}
 }
 
@@ -161,34 +165,32 @@ void* mem_construct(size_t size) {
 		INITIALIZED = true;
 		size_t bsize =((size_t) ((size + DATA_SIZE + ROUNDUP) / MEM_ALIGN_SIZE) * MEM_ALIGN_SIZE);
 		void* curr = sbrk(bsize);
-		if (curr == NULL) {
+		if (curr == (void*) -1) {
 			return NULL;
 		}
-		((mem_block*) curr)->asize = size;
-		((mem_block*) curr)->bsize = bsize;
+		//bsize + 1 for occupied
+		((mem_block*) curr)->bsize = bsize | 1;
 		((mem_block*) curr)->prev = NULL;
 		((mem_block*) curr)->next = NULL;
-		((mem_block*) curr)->occupied = true;
 		HEAD = (mem_block*) curr;
 		TAIL = (mem_block*) curr;
-		HEAP_END_ADDR = curr + bsize;
+		HEAP_END_ADDR = ((char*) curr) + bsize;
 		HEAP_START_ADDR = curr;
-		return curr + DATA_SIZE;
+		return ((char*) curr) + DATA_SIZE;
 	} else {
 		size_t bsize = ((size_t) ((size + DATA_SIZE + ROUNDUP) / MEM_ALIGN_SIZE) * MEM_ALIGN_SIZE);
 		void* curr = sbrk(bsize);
-		if (curr == NULL) {
+		if (curr == (void*) -1) {
 			return NULL;
 		}
-		((mem_block*) curr)->asize = size;
-		((mem_block*) curr)->bsize = bsize;
+		//bsize + 1 for occupied
+		((mem_block*) curr)->bsize = bsize | 1;
 		((mem_block*) curr)->prev = TAIL;
 		TAIL->next = (mem_block*) curr;
 		TAIL = (mem_block*) curr;
 		((mem_block*) curr)->next = NULL;
-		((mem_block*) curr)->occupied = true;
-		HEAP_END_ADDR = curr + bsize;
-		return curr + DATA_SIZE;
+		HEAP_END_ADDR = ((char*) curr) + bsize;
+		return ((char*) curr) + DATA_SIZE;
 	}
 }
 
@@ -197,18 +199,20 @@ void* mem_dispense(size_t size) {
 		return mem_construct(size);
 	}
 	//CHECK current mem_block linked list
-	mem_block* curr;
-	for (curr = HEAD; curr != NULL; curr = curr->next) {
-		if (curr->occupied) {
+	mem_block* curr = NULL;
+	size_t curr_asize = 0;
+	for (curr = FORWARD; curr != NULL; curr = curr->next) {
+		curr_asize = mem_realsize(curr) - DATA_SIZE;
+		if (mem_check(curr)) {
 			continue;
 		}
-		if (curr->asize < size) {
+		if (curr_asize < size) {
 			continue;
 		}
-		if (curr->asize == size) { //PERFECT FIT
-			return ((void*)curr) + DATA_SIZE;
+		if (curr_asize == size) { //PERFECT FIT
+			return ((char*)curr) + DATA_SIZE;
 		}
-		if (curr->asize > size) {
+		if (curr_asize > size) {
 			return mem_frag(curr, size);
 		}
 	}	
@@ -239,8 +243,11 @@ void* mem_dispense(size_t size) {
  * @see http://www.cplusplus.com/reference/clibrary/cstdlib/calloc/
  */
 void *calloc(size_t num, size_t size) {
-    // implement calloc!
-    return NULL;
+	void* malloc_result = malloc(num * size);
+	if (malloc_result != NULL) {
+		memset(malloc_result, 0, num * size);
+	}
+    return malloc_result;
 }
 
 /**
@@ -268,8 +275,7 @@ void *malloc(size_t size) {
 	if (size == 0) {
 		return NULL;
 	}
-    void* curr_block = mem_dispense(size);
-    return curr_block;
+    return mem_dispense(size);
 }
 
 /**
@@ -289,7 +295,23 @@ void *malloc(size_t size) {
  *    passed as argument, no action occurs.
  */
 void free(void *ptr) {
-    // implement free!
+    if (ptr == NULL) {
+		return;
+	}
+	mem_block* curr = (mem_block*) ((char*) ptr - DATA_SIZE);
+	if (mem_check(curr)) {
+		curr->bsize &= ~1;
+	}
+	memset(ptr, 0, curr->bsize - DATA_SIZE);
+	mem_combine(curr);
+	if (FORWARD == NULL) {
+		FORWARD = curr;
+	} else {
+		if (curr > FORWARD) {
+			FORWARD = curr;
+		}
+	}
+	return;
 }
 
 /**
@@ -338,6 +360,19 @@ void free(void *ptr) {
  * @see http://www.cplusplus.com/reference/clibrary/cstdlib/realloc/
  */
 void *realloc(void *ptr, size_t size) {
-    // implement realloc!
+   	mem_block* curr = (mem_block*) ((char*) ptr - DATA_SIZE);
+	size_t curr_asize = mem_realsize(curr) - DATA_SIZE;
+	if (curr_asize == size) {
+		return ptr;
+	} else if (curr_asize > size) {
+		return mem_frag(curr, size);
+	} else {
+		void* malloc_result = malloc(size);
+		if (malloc_result == NULL) {
+			return NULL;
+		}
+		memcpy(malloc_result, ptr, curr_asize);
+		free(ptr);
+	}
     return NULL;
 }
