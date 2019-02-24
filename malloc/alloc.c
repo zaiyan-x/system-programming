@@ -78,7 +78,9 @@ mem_block* mem_combine(mem_block* curr) {
 	if (curr->next != TAIL) {
 		curr->bsize += mem_realsize(curr->next);
 		curr->next = curr->next->next;
-		curr->next->prev = curr;
+		if (curr->next != NULL) {
+			curr->next->prev = curr;
+		}
 		memset(temp, 0, DATA_SIZE);
 	} else {
 		curr->bsize += mem_realsize(curr->next);
@@ -98,9 +100,10 @@ mem_block* mem_combine(mem_block* curr) {
 */
 void* mem_frag(mem_block* block_to_frag, size_t dsize) {
 	size_t bsize = mem_plan(dsize);
-	//fprintf(stderr, "original size is : %zu\n", mem_realsize(block_to_frag));
-	//fprintf(stderr, "mem_frag bsize is %zu\n", bsize);
 	mem_block* new_mem_block = (mem_block*) ((char*) block_to_frag + bsize);
+	if (block_to_frag == TAIL) {
+		TAIL = new_mem_block;
+	}
 	////FIRST memset all new block
 	new_mem_block->bsize = mem_realsize(block_to_frag) - bsize;
 	new_mem_block->prev = block_to_frag;
@@ -113,9 +116,7 @@ void* mem_frag(mem_block* block_to_frag, size_t dsize) {
 	}
 	block_to_frag->bsize = bsize;
 	mem_set(block_to_frag);
-	//fprintf(stderr, "before free new mem block size is: %zu\n", mem_realsize(new_mem_block));
 	free(mem_out(new_mem_block));
-	//fprintf(stderr, "after free new mem block size is : %zu\n", mem_realsize(new_mem_block));
 	block_to_frag->next = new_mem_block;
 	return mem_out(block_to_frag);
 }
@@ -360,7 +361,7 @@ void *realloc(void *ptr, size_t size) {
 		return ptr;
 	} else if (curr_asize > size) {
 		size_t remainder = mem_realsize(curr) - mem_plan(size);
-		if (remainder > DATA_SIZE && remainder % MEM_ALIGN_SIZE == 0) {
+		if (remainder >= DATA_SIZE) {
 			return mem_frag(curr, size);
 		} else {
 			void* malloc_result = malloc(size);
