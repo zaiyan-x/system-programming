@@ -21,8 +21,8 @@ static mem_block* HEAD = NULL; //The first mem_block
 static mem_block* TAIL = NULL; //The last mem_block
 static size_t DATA_SIZE = sizeof(struct _mem_block);
 static bool INITIALIZED = false;
-static size_t ROUNDUP = 3;
-static size_t MEM_ALIGN_SIZE = 4;
+static size_t ROUNDUP = 7;
+static size_t MEM_ALIGN_SIZE = 8;
 static mem_block* FORWARD = NULL;
 
 mem_block* mem_get(void* ptr) {
@@ -60,7 +60,7 @@ mem_block* mem_find(mem_block* input) {
 }
 
 size_t mem_info(mem_block* curr) {
-	return curr->bsize - DATA_SIZE;
+	return mem_realsize(curr) - DATA_SIZE;
 }
 
 /* 
@@ -93,7 +93,8 @@ mem_block* mem_combine(mem_block* curr) {
 */
 void* mem_frag(mem_block* block_to_frag, size_t dsize) {
     size_t bsize = ((size_t) ((dsize + DATA_SIZE + ROUNDUP) / MEM_ALIGN_SIZE) * MEM_ALIGN_SIZE);
-	//fprintf(stderr, "mem_frag bsize is %zu\n", bsize);	
+	fprintf(stderr, "original size is : %zu\n", mem_realsize(block_to_frag));
+	fprintf(stderr, "mem_frag bsize is %zu\n", bsize);
 	mem_block* new_mem_block = (mem_block*) ((char*) block_to_frag + bsize);
 	//FIRST memset all new block
 	new_mem_block->bsize = mem_realsize(block_to_frag) - bsize;
@@ -107,7 +108,9 @@ void* mem_frag(mem_block* block_to_frag, size_t dsize) {
 	}
 	block_to_frag->bsize = bsize;
 	mem_set(block_to_frag);
+	fprintf(stderr, "before free new mem block size is: %zu\n", mem_realsize(new_mem_block));
 	free(mem_out(new_mem_block));
+	fprintf(stderr, "after free new mem block size is : %zu\n", mem_realsize(new_mem_block));
 	block_to_frag->next = new_mem_block;
 	return mem_out(block_to_frag);
 }
@@ -274,9 +277,6 @@ void free(void *ptr) {
 		return;
 	}
 	mem_block* curr = mem_get(ptr);
-	if (mem_check(curr)) {
-		mem_unset(curr);
-	}
 	memset(ptr, 0, mem_info(curr));
 	if (curr != HEAD && !mem_check(curr->prev)) {
 		curr = mem_combine(curr->prev);
@@ -351,6 +351,9 @@ void *realloc(void *ptr, size_t size) {
 	}
 	mem_block* curr = mem_get(ptr);
 	size_t asize = mem_info(curr);
+	if (asize == size) {
+		return ptr;
+	}
 	void* malloc_result = malloc(size);
 	if (malloc_result == NULL) {
 		return NULL;
