@@ -63,6 +63,10 @@ size_t mem_info(mem_block* curr) {
 	return mem_realsize(curr) - DATA_SIZE;
 }
 
+size_t mem_plan(size_t asize) {
+	return ((size_t) ((asize + DATA_SIZE + ROUNDUP) / MEM_ALIGN_SIZE) * MEM_ALIGN_SIZE);
+}
+
 /* 
  * Try to combine memory blocks
  * This will return a mem_block*
@@ -90,13 +94,14 @@ mem_block* mem_combine(mem_block* curr) {
  * return: the ready to use (void*) pointer
  * before return, the ready-to-use mem_block must be appropriately seperated
  * and chained with previous and next blocks
+ * @ dsize is raw usr wanted size needs to be converted
 */
 void* mem_frag(mem_block* block_to_frag, size_t dsize) {
-    size_t bsize = ((size_t) ((dsize + DATA_SIZE + ROUNDUP) / MEM_ALIGN_SIZE) * MEM_ALIGN_SIZE);
-	fprintf(stderr, "original size is : %zu\n", mem_realsize(block_to_frag));
-	fprintf(stderr, "mem_frag bsize is %zu\n", bsize);
+	size_t bsize = mem_plan(dsize);
+	//fprintf(stderr, "original size is : %zu\n", mem_realsize(block_to_frag));
+	//fprintf(stderr, "mem_frag bsize is %zu\n", bsize);
 	mem_block* new_mem_block = (mem_block*) ((char*) block_to_frag + bsize);
-	//FIRST memset all new block
+	////FIRST memset all new block
 	new_mem_block->bsize = mem_realsize(block_to_frag) - bsize;
 	new_mem_block->prev = block_to_frag;
 	new_mem_block->next = block_to_frag->next;
@@ -108,9 +113,9 @@ void* mem_frag(mem_block* block_to_frag, size_t dsize) {
 	}
 	block_to_frag->bsize = bsize;
 	mem_set(block_to_frag);
-	fprintf(stderr, "before free new mem block size is: %zu\n", mem_realsize(new_mem_block));
+	//fprintf(stderr, "before free new mem block size is: %zu\n", mem_realsize(new_mem_block));
 	free(mem_out(new_mem_block));
-	fprintf(stderr, "after free new mem block size is : %zu\n", mem_realsize(new_mem_block));
+	//fprintf(stderr, "after free new mem block size is : %zu\n", mem_realsize(new_mem_block));
 	block_to_frag->next = new_mem_block;
 	return mem_out(block_to_frag);
 }
@@ -126,7 +131,7 @@ void* mem_frag(mem_block* block_to_frag, size_t dsize) {
 void* mem_construct(size_t size) {
 	if (!INITIALIZED) {
 		INITIALIZED = true;
-		size_t bsize =((size_t) ((size + DATA_SIZE + ROUNDUP) / MEM_ALIGN_SIZE) * MEM_ALIGN_SIZE);
+		size_t bsize = mem_plan(size);
 		mem_block* curr = (mem_block*) sbrk(bsize);
 		if (curr == (void*) -1) {
 			return NULL;
@@ -142,7 +147,7 @@ void* mem_construct(size_t size) {
 		HEAP_START_ADDR = curr;
 		return mem_out(curr);
 	} else {
-		size_t bsize = ((size_t) ((size + DATA_SIZE + ROUNDUP) / MEM_ALIGN_SIZE) * MEM_ALIGN_SIZE);
+		size_t bsize = mem_plan(size);
 		mem_block* curr = (mem_block*) sbrk(bsize);
 		if (curr == (void*) -1) {
 			return NULL;
@@ -166,7 +171,7 @@ void* mem_dispense(size_t size) {
 	//CHECK current mem_block linked list
 	mem_block* curr = NULL;
 	size_t curr_bsize = 0;
-	size_t bsize = ((size_t) ((size + DATA_SIZE + ROUNDUP) / MEM_ALIGN_SIZE) * MEM_ALIGN_SIZE);
+	size_t bsize = mem_plan(size);
 	for (curr = FORWARD; curr != NULL; curr = curr->next) {
 		curr_bsize = mem_realsize(curr);
 		if (mem_check(curr)) {
@@ -183,7 +188,7 @@ void* mem_dispense(size_t size) {
 		}
 		size_t remainder = curr_bsize - bsize;
 		if (curr_bsize > bsize) {
-			if (remainder % MEM_ALIGN_SIZE == 0) {
+			if (remainder % MEM_ALIGN_SIZE == 0 && remainder > DATA_SIZE) {
 				mem_set(curr);
 				FORWARD = (curr == FORWARD) ? mem_find(curr) : FORWARD; 
 				return mem_frag(curr, size);
@@ -350,16 +355,23 @@ void *realloc(void *ptr, size_t size) {
 		return NULL;
 	}
 	mem_block* curr = mem_get(ptr);
-	size_t asize = mem_info(curr);
-	if (asize == size) {
+	size_t curr_asize = mem_info(curr); 
+	if (curr_asize == size) {
 		return ptr;
+	} else if (curr_asize > size) {
+		size_t remainder = mem_realsize(curr) - mem_plan(size);
+		if (remainder > DATA_SIZE && remainder % MEM_ALIGN_SIZE == 0) {
+			return mem_frag(curr, size);
+		} else {
+			void* malloc_result = malloc(size);
+			memcpy(malloc_result, ptr, curr_asize);
+			free(ptr);
+			return malloc_result;
+		}
+	} else {
+		void* malloc_result = malloc(size);
+		memcpy(malloc_result, ptr, curr_asize);
+		free(ptr);
+		return malloc_result;
 	}
-	void* malloc_result = malloc(size);
-	if (malloc_result == NULL) {
-		return NULL;
-	}
-	size_t cpy_len = (asize > size) ? size : asize;
-	memcpy(malloc_result, ptr, cpy_len);
-	free(ptr);
-	return malloc_result;
 }
