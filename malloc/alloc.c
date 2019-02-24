@@ -21,8 +21,8 @@ static mem_block* HEAD = NULL; //The first mem_block
 static mem_block* TAIL = NULL; //The last mem_block
 static size_t DATA_SIZE = sizeof(struct _mem_block);
 static bool INITIALIZED = false;
-static size_t ROUNDUP = 15;
-static size_t MEM_ALIGN_SIZE = 16;
+static size_t ROUNDUP = 3;
+static size_t MEM_ALIGN_SIZE = 4;
 static mem_block* FORWARD = NULL;
 
 mem_block* mem_get(void* ptr) {
@@ -93,13 +93,13 @@ mem_block* mem_combine(mem_block* curr) {
 */
 void* mem_frag(mem_block* block_to_frag, size_t dsize) {
     size_t bsize = ((size_t) ((dsize + DATA_SIZE + ROUNDUP) / MEM_ALIGN_SIZE) * MEM_ALIGN_SIZE);
-	
+	//fprintf(stderr, "mem_frag bsize is %zu\n", bsize);	
 	mem_block* new_mem_block = (mem_block*) ((char*) block_to_frag + bsize);
 	//FIRST memset all new block
-	memset(new_mem_block, 0, mem_realsize(block_to_frag) - bsize);
 	new_mem_block->bsize = mem_realsize(block_to_frag) - bsize;
 	new_mem_block->prev = block_to_frag;
 	new_mem_block->next = block_to_frag->next;
+	memset(mem_out(new_mem_block), 0, mem_info(new_mem_block));
 	if (block_to_frag->next != NULL) {
 		block_to_frag->next->prev = new_mem_block;
 	} else {
