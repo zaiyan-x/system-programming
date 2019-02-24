@@ -70,84 +70,20 @@ size_t mem_info(mem_block* curr) {
  * B->B->p->q->r->B->B
 */
 mem_block* mem_combine(mem_block* curr) {
-	if (curr == TAIL && curr == HEAD) {
-		return curr;
-	} else if (curr == TAIL && curr != HEAD) {
-		if (mem_check(curr->prev)) {
-			return curr;
-		} else {
-			curr->prev->bsize += mem_realsize(curr);
-			curr->prev->next = NULL;
-			TAIL = curr->prev;
-			memset(curr, 0, DATA_SIZE);
-			return TAIL;
-		}
-	} else if (curr == HEAD && curr != TAIL) {
-		if (mem_check(curr->next)) {
-			return curr;
-		} else {
-			if (curr->next == TAIL) {
-				curr->bsize += mem_realsize(curr->next);
-				curr->next = NULL;
-				memset(TAIL, 0, DATA_SIZE);
-				TAIL = curr;
-				return curr;
-			} else {
-				mem_block* temp = curr->next;
-				curr->bsize += mem_realsize(curr->next);
-				curr->next = curr->next->next;
-				if (curr->next != NULL) {
-					curr->next->prev = curr;
-				}	
-				memset(temp, 0, DATA_SIZE);
-				return curr;
-			}
-		}
-	} else { //curr != HEAD && curr != TAIL
-		bool prev_aval = !mem_check(curr->prev);
-		bool next_aval = !mem_check(curr->next);
-		if (!prev_aval && !next_aval) {
-			return curr;
-		} else if (!prev_aval && next_aval) {
-			if (curr->next == TAIL) {
-				curr->bsize += mem_realsize(curr->next);
-				curr->next = NULL;
-				memset(TAIL, 0, DATA_SIZE);
-				TAIL = curr;
-				return curr;
-			} else {
-				mem_block* temp = curr->next;
-				curr->bsize += mem_realsize(curr->next);
-				curr->next = curr->next->next;
-				if (curr->next != NULL) {
-					curr->next->prev = curr;
-				}
-				memset(temp, 0, DATA_SIZE);
-				return curr;
-			}
-		} else if (prev_aval && !next_aval) {
-			curr->prev->next = curr->next;
-			curr->next->prev = curr->prev;
-			curr->prev->bsize += mem_realsize(curr);
-			mem_block* temp = curr;
-			curr = curr->prev;
-			memset(temp, 0, DATA_SIZE);
-			return curr;	
-		} else { //prev_aval && next_aval
-			curr->prev->next = curr->next->next;
-			if (curr->prev->next != NULL) {
-				curr->prev->next->prev = curr->prev;
-			}
-			curr->prev->bsize += mem_realsize(curr) + mem_realsize(curr->next);
-			mem_block* temp = curr;
-			curr = curr->prev;
-			memset(temp->next, 0, DATA_SIZE);
-			memset(temp, 0, DATA_SIZE);
-			return curr;
-		}
-	}		
+	mem_block* temp = curr->next;
+	if (curr->next != TAIL) {
+		curr->bsize += mem_realsize(curr->next);
+		curr->next = curr->next->next;
+		curr->next->prev = curr;
+		memset(temp, 0, DATA_SIZE);
+	} else {
+		curr->bsize += mem_realsize(curr->next);
+		curr->next = NULL;
+		TAIL = curr;
+		memset(temp, 0, DATA_SIZE);
+	}
+	return curr;
 }
-
 
 /* 
  * Try to frag one large data segment to desired size, dsize
@@ -171,7 +107,7 @@ void* mem_frag(mem_block* block_to_frag, size_t dsize) {
 	}
 	block_to_frag->bsize = bsize;
 	mem_set(block_to_frag);
-	mem_unset(new_mem_block);
+	free(mem_out(new_mem_block));
 	block_to_frag->next = new_mem_block;
 	return mem_out(block_to_frag);
 }
@@ -342,15 +278,21 @@ void free(void *ptr) {
 		mem_unset(curr);
 	}
 	memset(ptr, 0, mem_info(curr));
-	mem_block* comb = mem_combine(curr);
+	if (curr != HEAD && !mem_check(curr->prev)) {
+		curr = mem_combine(curr->prev);
+	}
+	if (curr != TAIL && !mem_check(curr->next)) {
+		curr = mem_combine(curr);
+	} 
+	
 	if (FORWARD == NULL) {
-		FORWARD = comb;
+		FORWARD = curr;
 	} else {
-		if (comb < FORWARD) {
-			FORWARD = comb;
+		if (curr < FORWARD) {
+			FORWARD = curr;
 		}
 	}
-	mem_unset(comb);
+	mem_unset(curr);
 	return;
 }
 
