@@ -19,11 +19,19 @@ static void* HEAP_END_ADDR = NULL; //The very start addr of mem chunk
 static void* HEAP_START_ADDR = NULL; //The very last bit of mem chunk
 static mem_block* HEAD = NULL; //The first mem_block
 static mem_block* TAIL = NULL; //The last mem_block
-static size_t DATA_SIZE = sizeof(mem_block);
+static size_t DATA_SIZE = sizeof(struct _mem_block);
 static bool INITIALIZED = false;
 static size_t ROUNDUP = 15;
 static size_t MEM_ALIGN_SIZE = 16;
 static mem_block* FORWARD = NULL;
+
+mem_block* mem_get(void* ptr) {
+	return (mem_block*) (((char*) ptr) - DATA_SIZE);
+}
+
+void* mem_out(mem_block* curr) {
+	return (void*) (((char*) curr) + DATA_SIZE);
+}
 
 bool mem_check(mem_block* curr) {
 	return (curr->bsize) & 1;
@@ -31,6 +39,28 @@ bool mem_check(mem_block* curr) {
 
 size_t mem_realsize(mem_block* curr) {
 	return (curr->bsize) & ~1;
+}
+
+void mem_set(mem_block* curr) {
+	curr->bsize |= 1;
+}
+
+void mem_unset(mem_block* curr) {
+	curr->bsize &= ~1;
+}
+
+mem_block* mem_find(mem_block* input) {
+	mem_block* curr;
+	for(curr = input; curr != NULL; curr = curr->next) {
+		if (!mem_check(curr)) {
+			return curr;
+		}
+	}
+	return NULL;
+}
+
+size_t mem_info(mem_block* curr) {
+	return curr->bsize - DATA_SIZE;
 }
 
 /* 
@@ -66,7 +96,9 @@ mem_block* mem_combine(mem_block* curr) {
 				mem_block* temp = curr->next;
 				curr->bsize += mem_realsize(curr->next);
 				curr->next = curr->next->next;
-				curr->next->prev = curr;
+				if (curr->next != NULL) {
+					curr->next->prev = curr;
+				}	
 				memset(temp, 0, DATA_SIZE);
 				return curr;
 			}
@@ -87,7 +119,9 @@ mem_block* mem_combine(mem_block* curr) {
 				mem_block* temp = curr->next;
 				curr->bsize += mem_realsize(curr->next);
 				curr->next = curr->next->next;
-				curr->next->prev = curr;
+				if (curr->next != NULL) {
+					curr->next->prev = curr;
+				}
 				memset(temp, 0, DATA_SIZE);
 				return curr;
 			}
@@ -100,24 +134,16 @@ mem_block* mem_combine(mem_block* curr) {
 			memset(temp, 0, DATA_SIZE);
 			return curr;	
 		} else { //prev_aval && next_aval
-			if (curr->next == TAIL) {
-				curr->prev->next = NULL;
-				curr->prev->bsize += mem_realsize(curr) + mem_realsize(curr->next);
-				mem_block* temp = curr;
-				curr = curr->prev;
-				memset(temp->next, 0, DATA_SIZE);
-				memset(temp, 0, DATA_SIZE);
-				return curr;
-			} else {
-				curr->prev->next = curr->next->next;
-				curr->next->next->prev = curr->prev;
-				curr->prev->bsize += mem_realsize(curr) + mem_realsize(curr->next);
-				mem_block* temp = curr;
-				curr = curr->prev;
-				memset(temp->next, 0, DATA_SIZE);
-				memset(temp, 0, DATA_SIZE);
-				return curr;
+			curr->prev->next = curr->next->next;
+			if (curr->prev->next != NULL) {
+				curr->prev->next->prev = curr->prev;
 			}
+			curr->prev->bsize += mem_realsize(curr) + mem_realsize(curr->next);
+			mem_block* temp = curr;
+			curr = curr->prev;
+			memset(temp->next, 0, DATA_SIZE);
+			memset(temp, 0, DATA_SIZE);
+			return curr;
 		}
 	}		
 }
@@ -130,26 +156,24 @@ mem_block* mem_combine(mem_block* curr) {
  * and chained with previous and next blocks
 */
 void* mem_frag(mem_block* block_to_frag, size_t dsize) {
-	block_to_frag->bsize |= 1;
-	if (block_to_frag->bsize - DATA_SIZE - dsize <= DATA_SIZE) {
-		//The user space of the mem_block is only large enough to contain
-		//mem segment meta data
-		return ((char*) block_to_frag) + DATA_SIZE;
+    size_t bsize = ((size_t) ((dsize + DATA_SIZE + ROUNDUP) / MEM_ALIGN_SIZE) * MEM_ALIGN_SIZE);
+	
+	mem_block* new_mem_block = (mem_block*) ((char*) block_to_frag + bsize);
+	//FIRST memset all new block
+	memset(new_mem_block, 0, mem_realsize(block_to_frag) - bsize);
+	new_mem_block->bsize = mem_realsize(block_to_frag) - bsize;
+	new_mem_block->prev = block_to_frag;
+	new_mem_block->next = block_to_frag->next;
+	if (block_to_frag->next != NULL) {
+		block_to_frag->next->prev = new_mem_block;
 	} else {
-		mem_block* new_mem_block = (mem_block*) ((char*) block_to_frag + DATA_SIZE + dsize);
-		//FIRST memset all new block
-		memset(new_mem_block, 0, mem_realsize(block_to_frag) - DATA_SIZE - dsize);
-		new_mem_block->bsize = mem_realsize(block_to_frag) - DATA_SIZE - dsize;
-		new_mem_block->prev = block_to_frag;
-		new_mem_block->next = block_to_frag->next;
-		if (block_to_frag->next != NULL) {
-			block_to_frag->next->prev = new_mem_block;
-		} else {
-			TAIL = new_mem_block;
-		}
-		block_to_frag->next = new_mem_block;
-		return ((char*) block_to_frag) + DATA_SIZE;
+		TAIL = new_mem_block;
 	}
+	block_to_frag->bsize = bsize;
+	mem_set(block_to_frag);
+	mem_unset(new_mem_block);
+	block_to_frag->next = new_mem_block;
+	return mem_out(block_to_frag);
 }
 
 /*
@@ -164,33 +188,35 @@ void* mem_construct(size_t size) {
 	if (!INITIALIZED) {
 		INITIALIZED = true;
 		size_t bsize =((size_t) ((size + DATA_SIZE + ROUNDUP) / MEM_ALIGN_SIZE) * MEM_ALIGN_SIZE);
-		void* curr = sbrk(bsize);
+		mem_block* curr = (mem_block*) sbrk(bsize);
 		if (curr == (void*) -1) {
 			return NULL;
 		}
 		//bsize + 1 for occupied
-		((mem_block*) curr)->bsize = bsize | 1;
-		((mem_block*) curr)->prev = NULL;
-		((mem_block*) curr)->next = NULL;
-		HEAD = (mem_block*) curr;
-		TAIL = (mem_block*) curr;
+		curr->bsize = bsize;
+		curr->prev = NULL;
+		curr->next = NULL;
+		mem_set(curr);
+		HEAD = curr;
+		TAIL = curr;
 		HEAP_END_ADDR = ((char*) curr) + bsize;
 		HEAP_START_ADDR = curr;
-		return ((char*) curr) + DATA_SIZE;
+		return mem_out(curr);
 	} else {
 		size_t bsize = ((size_t) ((size + DATA_SIZE + ROUNDUP) / MEM_ALIGN_SIZE) * MEM_ALIGN_SIZE);
-		void* curr = sbrk(bsize);
+		mem_block* curr = (mem_block*) sbrk(bsize);
 		if (curr == (void*) -1) {
 			return NULL;
 		}
 		//bsize + 1 for occupied
-		((mem_block*) curr)->bsize = bsize | 1;
-		((mem_block*) curr)->prev = TAIL;
-		TAIL->next = (mem_block*) curr;
-		TAIL = (mem_block*) curr;
-		((mem_block*) curr)->next = NULL;
-		HEAP_END_ADDR = ((char*) curr) + bsize;
-		return ((char*) curr) + DATA_SIZE;
+		curr->bsize = bsize;
+		curr->prev = TAIL;
+		curr->prev->next = curr;
+		mem_set(curr);
+		TAIL = curr;
+		curr->next = NULL;
+		HEAP_END_ADDR += bsize;
+		return mem_out(curr);
 	}
 }
 
@@ -200,20 +226,33 @@ void* mem_dispense(size_t size) {
 	}
 	//CHECK current mem_block linked list
 	mem_block* curr = NULL;
-	size_t curr_asize = 0;
+	size_t curr_bsize = 0;
+	size_t bsize = ((size_t) ((size + DATA_SIZE + ROUNDUP) / MEM_ALIGN_SIZE) * MEM_ALIGN_SIZE);
 	for (curr = FORWARD; curr != NULL; curr = curr->next) {
-		curr_asize = mem_realsize(curr) - DATA_SIZE;
+		curr_bsize = mem_realsize(curr);
 		if (mem_check(curr)) {
 			continue;
 		}
-		if (curr_asize < size) {
+		if (curr_bsize < bsize) {
 			continue;
 		}
-		if (curr_asize == size) { //PERFECT FIT
-			return ((char*)curr) + DATA_SIZE;
+		
+		if (curr_bsize == bsize) { //PERFECT FIT
+			mem_set(curr);
+			FORWARD = (curr == FORWARD) ? mem_find(curr) : FORWARD;
+			return mem_out(curr);
 		}
-		if (curr_asize > size) {
-			return mem_frag(curr, size);
+		size_t remainder = curr_bsize - bsize;
+		if (curr_bsize > bsize) {
+			if (remainder % MEM_ALIGN_SIZE == 0) {
+				mem_set(curr);
+				FORWARD = (curr == FORWARD) ? mem_find(curr) : FORWARD; 
+				return mem_frag(curr, size);
+			} else {
+				mem_set(curr);
+				FORWARD = (curr == FORWARD) ? mem_find(curr) : FORWARD;	
+				return mem_out(curr);
+			}
 		}
 	}	
 	return mem_construct(size);	
@@ -298,19 +337,20 @@ void free(void *ptr) {
     if (ptr == NULL) {
 		return;
 	}
-	mem_block* curr = (mem_block*) ((char*) ptr - DATA_SIZE);
+	mem_block* curr = mem_get(ptr);
 	if (mem_check(curr)) {
-		curr->bsize &= ~1;
+		mem_unset(curr);
 	}
-	memset(ptr, 0, curr->bsize - DATA_SIZE);
-	mem_combine(curr);
+	memset(ptr, 0, mem_info(curr));
+	mem_block* comb = mem_combine(curr);
 	if (FORWARD == NULL) {
-		FORWARD = curr;
+		FORWARD = comb;
 	} else {
-		if (curr > FORWARD) {
-			FORWARD = curr;
+		if (comb < FORWARD) {
+			FORWARD = comb;
 		}
 	}
+	mem_unset(comb);
 	return;
 }
 
@@ -360,19 +400,21 @@ void free(void *ptr) {
  * @see http://www.cplusplus.com/reference/clibrary/cstdlib/realloc/
  */
 void *realloc(void *ptr, size_t size) {
-   	mem_block* curr = (mem_block*) ((char*) ptr - DATA_SIZE);
-	size_t curr_asize = mem_realsize(curr) - DATA_SIZE;
-	if (curr_asize == size) {
-		return ptr;
-	} else if (curr_asize > size) {
-		return mem_frag(curr, size);
-	} else {
-		void* malloc_result = malloc(size);
-		if (malloc_result == NULL) {
-			return NULL;
-		}
-		memcpy(malloc_result, ptr, curr_asize);
-		free(ptr);
+   	if (ptr == NULL) {
+		return malloc(size);
 	}
-    return NULL;
+	if (size == 0) {
+		free(ptr);
+		return NULL;
+	}
+	mem_block* curr = mem_get(ptr);
+	size_t asize = mem_info(curr);
+	void* malloc_result = malloc(size);
+	if (malloc_result == NULL) {
+		return NULL;
+	}
+	size_t cpy_len = (asize > size) ? size : asize;
+	memcpy(malloc_result, ptr, cpy_len);
+	free(ptr);
+	return malloc_result;
 }
