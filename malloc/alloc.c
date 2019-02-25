@@ -13,6 +13,7 @@ typedef struct _mem_block {
 	struct _mem_block * prev;
 	struct _mem_block * next;
 	size_t bsize; //block size
+	struct _mem_block * next_free;
 } mem_block;
 
 static void* HEAP_END_ADDR = NULL; //The very start addr of mem chunk
@@ -21,9 +22,9 @@ static mem_block* HEAD = NULL; //The first mem_block
 static mem_block* TAIL = NULL; //The last mem_block
 static size_t DATA_SIZE = sizeof(struct _mem_block);
 static bool INITIALIZED = false;
-static size_t ROUNDUP = 7;
-static size_t MEM_ALIGN_SIZE = 8;
-static mem_block* FORWARD = NULL;
+static size_t ROUNDUP = 15;
+static size_t MEM_ALIGN_SIZE = 16;
+static mem_block* FREE_HEAD;
 
 mem_block* mem_get(void* ptr) {
 	return (mem_block*) (((char*) ptr) - DATA_SIZE);
@@ -74,7 +75,7 @@ size_t mem_plan(size_t asize) {
  * B->B->p->q->r->B->B
 */
 mem_block* mem_combine(mem_block* curr) {
-	mem_block* temp = curr->next;
+	mem_block* curr_next = curr->next;
 	if (curr->next != TAIL) {
 		curr->bsize += mem_realsize(curr->next);
 		curr->next = curr->next->next;
@@ -88,6 +89,11 @@ mem_block* mem_combine(mem_block* curr) {
 		TAIL = curr;
 		memset(temp, 0, DATA_SIZE);
 	}
+	if (curr_next->next == NULL) {
+		curr->bsize += mem_realsize(curr_next);
+		curr->next = NULL;
+		TAIL = curr;
+		memset(curr_next
 	return curr;
 }
 
@@ -141,6 +147,7 @@ void* mem_construct(size_t size) {
 		curr->bsize = bsize;
 		curr->prev = NULL;
 		curr->next = NULL;
+		curr->next_free = NULL;
 		mem_set(curr);
 		HEAD = curr;
 		TAIL = curr;
@@ -157,6 +164,7 @@ void* mem_construct(size_t size) {
 		curr->bsize = bsize;
 		curr->prev = TAIL;
 		curr->prev->next = curr;
+		curr->next_free = NULL;
 		mem_set(curr);
 		TAIL = curr;
 		curr->next = NULL;
@@ -184,18 +192,15 @@ void* mem_dispense(size_t size) {
 		
 		if (curr_bsize == bsize) { //PERFECT FIT
 			mem_set(curr);
-			FORWARD = (curr == FORWARD) ? mem_find(curr) : FORWARD;
 			return mem_out(curr);
 		}
 		size_t remainder = curr_bsize - bsize;
 		if (curr_bsize > bsize) {
-			if (remainder % MEM_ALIGN_SIZE == 0 && remainder > DATA_SIZE) {
+			if (remainder >=  DATA_SIZE) {
 				mem_set(curr);
-				FORWARD = (curr == FORWARD) ? mem_find(curr) : FORWARD; 
 				return mem_frag(curr, size);
 			} else {
 				mem_set(curr);
-				FORWARD = (curr == FORWARD) ? mem_find(curr) : FORWARD;	
 				return mem_out(curr);
 			}
 		}
@@ -284,19 +289,18 @@ void free(void *ptr) {
 	}
 	mem_block* curr = mem_get(ptr);
 	memset(ptr, 0, mem_info(curr));
-	if (curr != HEAD && !mem_check(curr->prev)) {
+	mem_unset(curr);
+	if (curr->prev != NULL && !mem_check(curr->prev)) {
 		curr = mem_combine(curr->prev);
 	}
-	if (curr != TAIL && !mem_check(curr->next)) {
+	if (curr->next != NULL && !mem_check(curr->next)) {
 		curr = mem_combine(curr);
-	} 
-	
-	if (FORWARD == NULL) {
-		FORWARD = curr;
-	} else {
-		if (curr < FORWARD) {
-			FORWARD = curr;
-		}
+	}
+	if (FREE_HEAD == NULL) {
+		FREE_HEAD = curr;
+	} else {	
+		curr->next_free = FREE_HEAD;
+		FREE_HEAD->next_free = curr;
 	}
 	mem_unset(curr);
 	return;
