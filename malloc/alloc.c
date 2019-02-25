@@ -265,10 +265,9 @@ void* mem_frag_realloc(header* curr_header, size_t dsize) {
 	mem_confine(curr_header, dsize);
 	mem_set(curr_header);
 	header* new_header = mem_get_end_from_header(curr_header);
-	new_header->bsize = new_bsize;
-	new_header->next = NULL;
-	new_header->prev = NULL;
 	mem_confine(new_header, new_bsize);
+	new_header->prev = NULL;
+	new_header->next = NULL;
 	free(mem_get_user_from_header(new_header));
 	return mem_get_user_from_header(curr_header);
 }
@@ -284,9 +283,12 @@ void* mem_frag_malloc(header* curr_header, size_t dsize) {
 	size_t curr_bsize = mem_header_realsize(curr_header);
 	size_t modified_bsize = curr_bsize - dsize;
 	mem_confine(curr_header, modified_bsize);
+	mem_unset(curr_header);
 	header* new_header = mem_get_end_from_header(curr_header);
 	mem_confine(new_header, dsize);
 	mem_set(new_header);
+	new_header->prev = NULL;
+	new_header->next = NULL;
 	return mem_get_user_from_header(new_header);
 }
 
