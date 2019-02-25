@@ -454,21 +454,16 @@ void *realloc(void *ptr, size_t size) {
 		free(ptr);
 		return NULL;
 	}
-	size_t user_bsize = mem_plan(size);
- 	header* curr_header = mem_get_header_from_user(ptr);
+	size_t desired_bsize = mem_plan(size);
+	header* curr_header = mem_get_header_from_user(ptr);
 	size_t curr_bsize = mem_header_realsize(curr_header);
 	size_t curr_asize = mem_header_usersize(curr_header);
-	if (curr_bsize < user_bsize) {
+	if (curr_bsize >= desired_bsize) {
+		return ptr;
+	} else {
 		void* malloc_result = malloc(size);
-		//fprintf(stderr, "requested size is larger than capacity before, malloc...\n");
 		memcpy(malloc_result, ptr, curr_asize);
+		free(ptr);
 		return malloc_result;
-	} else { //shorten original
-		size_t remainder = curr_bsize - user_bsize;
-		if (remainder <= DATA_SIZE) {
-			return ptr;
-		} else {
-			return mem_frag(curr_header, user_bsize);	
-		}
-	}
+	} 
 }
