@@ -25,8 +25,8 @@ static size_t FOOTER_SIZE = sizeof(struct _footer);
 static size_t ROUNDUP = 15;
 static size_t MEM_ALIGN_SIZE = 16;
 static header* FREE_HEAD = NULL;
-static header* HEAP_HEAD = NULL;
-static header* HEAP_TAIL = NULL;
+static void* HEAP_HEAD = NULL;
+static void* HEAP_TAIL = NULL;
 
 bool mem_header_check(header* curr) {
 	return (curr->bsize) & 1;
@@ -48,17 +48,6 @@ size_t mem_header_usersize(header* curr) {
 	return mem_header_realsize(curr) - DATA_SIZE;
 }
 
-header* mem_get_next_header_from_header(header* curr) {
-	if (curr == HEAP_TAIL) {
-		return NULL;
-	}
-	header* next_header = (header*) (((char*) curr) + mem_header_realsize(curr));
-	if (mem_header_check(next_header)) {
-		return NULL;
-	} else {
-		return next_header;
-	}
-}
 header* mem_get_header_from_user(void* ptr) {
 	return (header*) (((char*) ptr) - HEADER_SIZE);
 }
@@ -107,8 +96,35 @@ void mem_confine(header* curr_header, size_t bsize) {
 	return;
 }
 
+size_t mem_plan(size_t asize) {
+	return ((size_t) ((asize + DATA_SIZE + ROUNDUP) / MEM_ALIGN_SIZE) * MEM_ALIGN_SIZE);
+}
+
+bool mem_check_TAIL(header* curr) {
+	void* curr_end = (void*) mem_get_end_from_header(curr);
+	if (curr_end == HEAP_TAIL) {
+		return true;
+	} else if (curr_end > HEAP_TAIL) {
+		fprintf(stderr, "WHAT THE FUCK IS GOING ON???");
+		return true;
+	} else {
+		return false;
+	}
+}
+
+bool mem_check_HEAD(header* curr) {
+	void* curr_start = (void*) curr;
+	if (curr_start == HEAP_HEAD) {
+		return true;
+	} else if (curr_start > HEAP_HEAD) {
+		return false;
+	} else {
+		fprintf(stderr, "WHAT THE FUCK IS GOING ON???");
+		return true;
+	}
+}
 footer* mem_get_prev_footer_from_header(header* curr) {
-	if (curr == HEAP_HEAD) {
+	if (mem_check_HEAD(curr)) {
 		return NULL;
 	}
 	footer* prev_footer = (footer*) (((char*) curr) - FOOTER_SIZE);
@@ -118,15 +134,18 @@ footer* mem_get_prev_footer_from_header(header* curr) {
 		return prev_footer;
 	}
 }
-
-size_t mem_plan(size_t asize) {
-	return ((size_t) ((asize + DATA_SIZE + ROUNDUP) / MEM_ALIGN_SIZE) * MEM_ALIGN_SIZE);
-}
-
-header* mem_combine_prev(header* curr_header, header* prev_header) {
-	if (HEAP_TAIL == curr_header) {
-		HEAP_TAIL = prev_header;
+header* mem_get_next_header_from_header(header* curr) {
+	if (mem_check_TAIL(curr)) {
+		return NULL;
 	}
+	header* next_header = (header*) (((char*) curr) + mem_header_realsize(curr));
+	if (mem_header_check(next_header)) {
+		return NULL;
+	} else {
+		return next_header;
+	}
+}
+header* mem_combine_prev(header* curr_header, header* prev_header) {
 	prev_header->bsize += mem_header_realsize(curr_header);
 	footer* curr_footer = mem_get_footer_from_header(curr_header);
 	memset(curr_header, 0, HEADER_SIZE);
@@ -136,9 +155,6 @@ header* mem_combine_prev(header* curr_header, header* prev_header) {
 }
 
 header* mem_combine_next(header* curr_header, header* next_header) {
-	if (HEAP_TAIL == next_header) {
-		HEAP_TAIL = curr_header;
-	}
 	//FIRST FIX FREE-LIST
 	if (next_header->prev != NULL) {
 		next_header->prev->next = curr_header;
@@ -155,9 +171,6 @@ header* mem_combine_next(header* curr_header, header* next_header) {
 }
 
 header* mem_combine_both(header* curr_header, header* prev_header, header* next_header) {
-	if (HEAP_TAIL == next_header) {
-		HEAP_TAIL = prev_header;
-	}
 	//FIRST FIX FREE-LIST
 	if (next_header->next != NULL) {
 		next_header->next->prev = prev_header;
@@ -190,6 +203,8 @@ header* mem_combine_none(header* curr_header) {
 void mem_unchain(header* curr_header) {
 	if (curr_header->prev != NULL) {
 		curr_header->prev->next = curr_header->next;
+	} else {
+		FREE_HEAD = curr_header->next;
 	}
 	if (curr_header->next != NULL) {
 		curr_header->next->prev = curr_header->prev;
@@ -232,7 +247,6 @@ header* mem_combine(header* curr) {
 void* mem_frag(header* curr_header, size_t dsize) {
 	size_t curr_bsize = mem_header_realsize(curr_header);
 	size_t new_bsize = curr_bsize - dsize;
-	curr_header->bsize = dsize;
 	mem_confine(curr_header, dsize);
 	mem_set(curr_header);
 	header* new_header = mem_get_end_from_header(curr_header);
@@ -261,14 +275,15 @@ void* mem_construct(size_t size) {
 		return NULL;
 	}
 	if (HEAP_HEAD == NULL && HEAP_TAIL == NULL) {
-		HEAP_HEAD = curr;
-		HEAP_TAIL = curr;
+		HEAP_HEAD = (void*) curr;
+		HEAP_TAIL = (void*) ((char*) curr + bsize);
+	} else {
+		HEAP_TAIL = (void*) ((char*) HEAP_TAIL + bsize);
 	}
 	curr->prev = NULL;
 	curr->next = NULL;
 	mem_confine(curr, bsize);
-	mem_set(curr);
-	HEAP_TAIL = curr;	
+	mem_set(curr);	
 	return mem_get_user_from_header(curr);
 }
 
@@ -289,7 +304,7 @@ void* mem_dispense(size_t size) {
 			mem_unchain(curr);
 			mem_set(curr);
 			size_t remainder = curr_bsize - user_bsize;
-			if (remainder < DATA_SIZE) {
+			if (remainder <= DATA_SIZE) {
 				return mem_get_user_from_header(curr);
 			} else {
 				return mem_frag(curr, user_bsize);
@@ -440,19 +455,17 @@ void *realloc(void *ptr, size_t size) {
 		return NULL;
 	}
 	size_t user_bsize = mem_plan(size);
-	//fprintf(stderr, "(realloc) user_bsize is: %zu\n", user_bsize);
  	header* curr_header = mem_get_header_from_user(ptr);
 	size_t curr_bsize = mem_header_realsize(curr_header);
-	//fprintf(stderr, "(realloc) curr_bsize is: %zu\n", curr_bsize);
 	size_t curr_asize = mem_header_usersize(curr_header);
-	//fprintf(stderr, "(realloc) curr_asize is: %zu\n", curr_asize);
 	if (curr_bsize < user_bsize) {
 		void* malloc_result = malloc(size);
+		//fprintf(stderr, "requested size is larger than capacity before, malloc...\n");
 		memcpy(malloc_result, ptr, curr_asize);
 		return malloc_result;
 	} else { //shorten original
 		size_t remainder = curr_bsize - user_bsize;
-		if (remainder < DATA_SIZE) {
+		if (remainder <= DATA_SIZE) {
 			return ptr;
 		} else {
 			return mem_frag(curr_header, user_bsize);	
