@@ -158,10 +158,14 @@ header* mem_combine_next(header* curr_header, header* next_header) {
 	//FIRST FIX FREE-LIST
 	if (next_header->prev != NULL) {
 		next_header->prev->next = curr_header;
+	} else {
+		FREE_HEAD = curr_header;
 	}
 	if (next_header->next != NULL) {
 		next_header->next->prev = curr_header;
 	}
+	curr_header->prev = next_header->prev;
+	curr_header->next = next_header->next;
 	curr_header->bsize += next_header->bsize;
 	footer* curr_footer = mem_get_footer_from_header(curr_header);
 	memset(curr_footer, 0, FOOTER_SIZE);
@@ -192,6 +196,9 @@ header* mem_combine_both(header* curr_header, header* prev_header, header* next_
 header* mem_combine_none(header* curr_header) {
 	if (FREE_HEAD == NULL) {
 		FREE_HEAD = curr_header;
+		curr_header->prev = NULL;
+		curr_header->next = NULL;
+		return curr_header;
 	}
 	curr_header->prev = NULL;
 	curr_header->next = FREE_HEAD;
@@ -201,6 +208,12 @@ header* mem_combine_none(header* curr_header) {
 }	
 
 void mem_unchain(header* curr_header) {
+	if (curr_header->prev == NULL && curr_header->next == NULL) {
+		FREE_HEAD = NULL;
+		curr_header->prev = NULL;
+		curr_header->next = NULL;
+		return;
+	}
 	if (curr_header->prev != NULL) {
 		curr_header->prev->next = curr_header->next;
 	} else {
@@ -209,6 +222,8 @@ void mem_unchain(header* curr_header) {
 	if (curr_header->next != NULL) {
 		curr_header->next->prev = curr_header->prev;
 	}
+	curr_header->prev = NULL;
+	curr_header->next = NULL;
 	return;
 }
 
@@ -238,21 +253,18 @@ header* mem_combine(header* curr) {
 }
 
 /* 
- * Try to frag one large data segment to desired size, dsize
+ * Try to frag one large, currenetly IN USE, memory chunk to desired size, dsize
  * return: the ready to use (void*) pointer
  * before return, the ready-to-use mem_block must be appropriately seperated
- * and chained with previous and next blocks
+ * ,and the LATTER block FREED and chained with previous and next blocks
  * @ dsize is desired block size need NOT to be converted
 */
-void* mem_frag(header* curr_header, size_t dsize) {
+void* mem_frag_realloc(header* curr_header, size_t dsize) {
 	size_t curr_bsize = mem_header_realsize(curr_header);
 	size_t new_bsize = curr_bsize - dsize;
 	mem_confine(curr_header, dsize);
 	mem_set(curr_header);
 	header* new_header = mem_get_end_from_header(curr_header);
-	if (HEAP_TAIL == curr_header) {
-		HEAP_TAIL = new_header;
-	}
 	new_header->bsize = new_bsize;
 	new_header->next = NULL;
 	new_header->prev = NULL;
@@ -260,6 +272,24 @@ void* mem_frag(header* curr_header, size_t dsize) {
 	free(mem_get_user_from_header(new_header));
 	return mem_get_user_from_header(curr_header);
 }
+
+/*
+ * Try to frag a memory chunk from FREE_LIST
+ * return: the ready to use (void*) pointer
+ * before return, the ready-to-use mem_block must be appropriatedly seperated
+ * and REMAINED chained with next and previous blocks
+ * @ dsize is desired block size need NOT to be converted
+*/
+void* mem_frag_malloc(header* curr_header, size_t dsize) {
+	size_t curr_bsize = mem_header_realsize(curr_header);
+	size_t modified_bsize = curr_bsize - dsize;
+	mem_confine(curr_header, modified_bsize);
+	header* new_header = mem_get_end_from_header(curr_header);
+	mem_confine(new_header, dsize);
+	mem_set(new_header);
+	return mem_get_user_from_header(new_header);
+}
+
 /*
  * Only constructs new chunk in the end
  * Result:
@@ -278,7 +308,7 @@ void* mem_construct(size_t size) {
 		HEAP_HEAD = (void*) curr;
 		HEAP_TAIL = (void*) ((char*) curr + bsize);
 	} else {
-		HEAP_TAIL = (void*) ((char*) HEAP_TAIL + bsize);
+		HEAP_TAIL = (void*) ((char*) curr + bsize);
 	}
 	curr->prev = NULL;
 	curr->next = NULL;
@@ -302,12 +332,14 @@ void* mem_dispense(size_t size) {
 			return mem_get_user_from_header(curr);
 		} else { //curr_bsize > user_bsize
 			mem_unchain(curr);
+			mem_confine(curr, curr_bsize);
 			mem_set(curr);
 			size_t remainder = curr_bsize - user_bsize;
 			if (remainder <= DATA_SIZE) {
 				return mem_get_user_from_header(curr);
 			} else {
-				return mem_frag(curr, user_bsize);
+				return mem_frag_malloc(curr, user_bsize);
+				//return mem_get_user_from_header(curr);
 			}
 		}
 	}	
@@ -439,7 +471,8 @@ void free(void *ptr) {
  *
  *    The type of this pointer is void*, which can be cast to the desired
  *    type of data pointer in order to be dereferenceable.
- *
+: FAILED=(92)
+
  *    If the function failed to allocate the requested block of memory,
  *    a NULL pointer is returned, and the memory block pointed to by
  *    argument ptr is left unchanged.
@@ -458,7 +491,14 @@ void *realloc(void *ptr, size_t size) {
 	header* curr_header = mem_get_header_from_user(ptr);
 	size_t curr_bsize = mem_header_realsize(curr_header);
 	size_t curr_asize = mem_header_usersize(curr_header);
-	if (curr_bsize >= desired_bsize) {
+	if (curr_bsize > desired_bsize) {
+		size_t remainder = curr_bsize - desired_bsize;
+		if (remainder <= DATA_SIZE) {
+			return ptr;
+		} else {
+			return mem_frag_realloc(curr_header, desired_bsize);
+		}	
+	} else if (curr_bsize == desired_bsize) {
 		return ptr;
 	} else {
 		void* malloc_result = malloc(size);
