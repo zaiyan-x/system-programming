@@ -320,8 +320,41 @@ void* mem_construct(size_t size) {
 }
 
 
+/*
+ * mem_extend_tail tries to utilize HEAP_TAIL
+ * only called when tail_bsize <= user_bsize
+ *
+*/
+void* mem_extend_tail(header* tail_header, size_t tail_bsize, size_t user_bsize) {
+	if (tail_bsize == user_bsize) {
+		mem_unchain(tail_header);
+		mem_confine(tail_header, user_bsize);
+		mem_set(tail_header);
+		return mem_get_user_from_header(tail_header);
+	}
+	size_t bsize_to_request = user_bsize - tail_bsize;
+	void* curr = sbrk(bsize_to_request);
+	if (curr == (void*)-1) {
+		return NULL;
+	}
+	HEAP_TAIL = (void*) ((char*) curr + bsize_to_request);
+	mem_unchain(tail_header);
+	mem_confine(tail_header, user_bsize);
+	mem_set(tail_header);
+	return mem_get_user_from_header(tail_header);
+}
+
 void* mem_dispense(size_t size) {
 	header* curr;
+	if (HEAP_TAIL != NULL) {
+		footer* tail_footer = mem_get_footer_from_end(HEAP_TAIL);
+		size_t tail_bsize = mem_footer_realsize(tail_footer);
+		size_t user_bsize = mem_plan(size);
+		if (!mem_footer_check(tail_footer) && tail_bsize <= user_bsize) {
+			header* tail_header = mem_get_header_from_footer(tail_footer);
+			return mem_extend_tail(tail_header, tail_bsize, user_bsize);
+		}
+	}
 	size_t user_bsize = mem_plan(size);
 	for (curr = FREE_HEAD; curr != NULL; curr = curr->next) {
 		size_t curr_bsize = mem_header_realsize(curr);
@@ -504,6 +537,9 @@ void *realloc(void *ptr, size_t size) {
 		return ptr;
 	} else {
 		void* malloc_result = malloc(size);
+		if (malloc_result == NULL) {
+			return NULL;
+		}
 		memcpy(malloc_result, ptr, curr_asize);
 		free(ptr);
 		return malloc_result;

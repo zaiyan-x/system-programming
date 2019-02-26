@@ -6,7 +6,7 @@
 #include "tester-utils.h"
 
 #define MIN_ALLOC_SIZE (256 * K * K)
-#define MAX_ALLOC_SIZE (K * K * K)
+#define MAX_ALLOC_SIZE (K * K * K) // K*K*K
 
 void *malloc_and_break(void *region, int c, size_t len) {
     if (len < MIN_ALLOC_SIZE) {
