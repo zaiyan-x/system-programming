@@ -272,6 +272,27 @@ void* mem_frag_realloc(header* curr_header, size_t dsize) {
 	return mem_get_user_from_header(curr_header);
 }
 
+void* mem_frag_opt(header* tail_header, size_t dsize) {
+	size_t tail_bsize = mem_header_realsize(tail_header);
+	size_t new_bsize = tail_bsize - dsize;
+	mem_confine(tail_header, dsize);
+	mem_set(tail_header);
+	header* new_header = mem_get_end_from_header(tail_header);
+	mem_confine(new_header, new_bsize);
+	mem_unset(new_header);
+	if (tail_header->prev != NULL) {
+		tail_header->prev->next = new_header;
+	}
+	if (tail_header->next != NULL) {
+		tail_header->next->prev = new_header;
+	}
+	new_header->prev = tail_header->prev;
+	new_header->next = tail_header->next;
+	tail_header->prev = NULL;
+	tail_header->next = NULL;
+	return mem_get_user_from_header(tail_header);
+}
+
 /*
  * Try to frag a memory chunk from FREE_LIST
  * return: the ready to use (void*) pointer
@@ -291,6 +312,7 @@ void* mem_frag_malloc(header* curr_header, size_t dsize) {
 	new_header->next = NULL;
 	return mem_get_user_from_header(new_header);
 }
+
 
 /*
  * Only constructs new chunk in the end
@@ -350,9 +372,18 @@ void* mem_dispense(size_t size) {
 		footer* tail_footer = mem_get_footer_from_end(HEAP_TAIL);
 		size_t tail_bsize = mem_footer_realsize(tail_footer);
 		size_t user_bsize = mem_plan(size);
-		if (!mem_footer_check(tail_footer) && tail_bsize <= user_bsize) {
+		if (!mem_footer_check(tail_footer)) {
 			header* tail_header = mem_get_header_from_footer(tail_footer);
-			return mem_extend_tail(tail_header, tail_bsize, user_bsize);
+			if (tail_bsize <= user_bsize) {
+				return mem_extend_tail(tail_header, tail_bsize, user_bsize);
+			} else {
+				size_t remainder = tail_bsize - user_bsize;
+				if (remainder <= DATA_SIZE) {
+					return mem_extend_tail(tail_header, tail_bsize, user_bsize);
+				} else {
+					return mem_frag_opt(tail_header, user_bsize);
+				}  
+			}
 		}
 	}
 	size_t user_bsize = mem_plan(size);
