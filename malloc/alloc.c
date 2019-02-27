@@ -148,6 +148,8 @@ header* mem_get_next_header_from_header(header* curr) {
 header* mem_combine_prev(header* curr_header, header* prev_header) {
 	prev_header->bsize += mem_header_realsize(curr_header);
 	footer* curr_footer = mem_get_footer_from_header(curr_header);
+	curr_header->next = NULL;
+	curr_header->prev = NULL;
 	memset(curr_header, 0, HEADER_SIZE);
 	memset(curr_footer, 0, FOOTER_SIZE);
 	mem_confine(prev_header, mem_header_realsize(prev_header));
@@ -156,6 +158,7 @@ header* mem_combine_prev(header* curr_header, header* prev_header) {
 
 header* mem_combine_next(header* curr_header, header* next_header) {
 	//FIRST FIX FREE-LIST
+	//fprintf(stderr, "comb_next next is at: %p\n", next_header);
 	if (next_header->prev != NULL) {
 		next_header->prev->next = curr_header;
 	} else {
@@ -166,10 +169,12 @@ header* mem_combine_next(header* curr_header, header* next_header) {
 	}
 	curr_header->prev = next_header->prev;
 	curr_header->next = next_header->next;
+	next_header->prev = NULL;
+	next_header->next = NULL;
 	curr_header->bsize += next_header->bsize;
-	footer* curr_footer = mem_get_footer_from_header(curr_header);
-	memset(curr_footer, 0, FOOTER_SIZE);
-	memset(next_header, 0, HEADER_SIZE);
+	//footer* curr_footer = mem_get_footer_from_header(curr_header);
+	//memset(curr_footer, 0, FOOTER_SIZE);
+	//memset(next_header, 0, HEADER_SIZE);
 	mem_confine(curr_header, mem_header_realsize(curr_header));
 	return curr_header;
 }
@@ -180,20 +185,33 @@ header* mem_combine_both(header* curr_header, header* prev_header, header* next_
 		next_header->next->prev = prev_header;
 	}
 	prev_header->next = next_header->next;
+	curr_header->prev = NULL;
+	curr_header->next = NULL;
+	next_header->next = NULL;
+	next_header->prev = NULL;
+	mem_unset(prev_header);
 	prev_header->bsize += mem_header_realsize(curr_header) + mem_header_realsize(next_header);
 	footer* prev_footer = mem_get_footer_from_header(prev_header);
-	footer* curr_footer = mem_get_footer_from_header(curr_header);
-	footer* next_footer = mem_get_footer_from_header(next_header);
+	//footer* curr_footer = mem_get_footer_from_header(curr_header);
+	//footer* next_footer = mem_get_footer_from_header(next_header);
 	memset(prev_footer, 0, FOOTER_SIZE);
-	memset(curr_header, 0, HEADER_SIZE);
-	memset(curr_footer, 0, FOOTER_SIZE);
-	memset(next_header, 0, HEADER_SIZE);
-	memset(next_footer, 0, FOOTER_SIZE);
+	//memset(curr_header, 0, HEADER_SIZE);
+	//memset(curr_footer, 0, FOOTER_SIZE);
+	//memset(next_header, 0, HEADER_SIZE);
+	//memset(next_footer, 0, FOOTER_SIZE);
 	mem_confine(prev_header, mem_header_realsize(prev_header));
 	return prev_header;
 }
 
+void print_free_list() {
+	header* curr;
+	for (curr = FREE_HEAD; curr != NULL; curr = curr->next) {
+		fprintf(stderr, "curr freed chunk address is at: %p\n", curr);
+	}
+}
+
 header* mem_combine_none(header* curr_header) {
+	//fprintf(stderr, "comb_none curr is at: %p\n", curr_header);
 	if (FREE_HEAD == NULL) {
 		FREE_HEAD = curr_header;
 		curr_header->prev = NULL;
@@ -273,6 +291,10 @@ void* mem_frag_realloc(header* curr_header, size_t dsize) {
 }
 
 void* mem_frag_opt(header* tail_header, size_t dsize) {
+	if (mem_header_check(tail_header)) {
+		fprintf(stderr, "something wrong with tail_header input");
+		return NULL;
+	}
 	size_t tail_bsize = mem_header_realsize(tail_header);
 	size_t new_bsize = tail_bsize - dsize;
 	mem_confine(tail_header, dsize);
@@ -367,25 +389,7 @@ void* mem_extend_tail(header* tail_header, size_t tail_bsize, size_t user_bsize)
 }
 
 void* mem_dispense(size_t size) {
-	header* curr;
-	if (HEAP_TAIL != NULL) {
-		footer* tail_footer = mem_get_footer_from_end(HEAP_TAIL);
-		size_t tail_bsize = mem_footer_realsize(tail_footer);
-		size_t user_bsize = mem_plan(size);
-		if (!mem_footer_check(tail_footer)) {
-			header* tail_header = mem_get_header_from_footer(tail_footer);
-			if (tail_bsize <= user_bsize) {
-				return mem_extend_tail(tail_header, tail_bsize, user_bsize);
-			} else {
-				size_t remainder = tail_bsize - user_bsize;
-				if (remainder <= DATA_SIZE) {
-					return mem_extend_tail(tail_header, tail_bsize, user_bsize);
-				} else {
-					return mem_frag_opt(tail_header, user_bsize);
-				}  
-			}
-		}
-	}
+	header* curr;	
 	size_t user_bsize = mem_plan(size);
 	for (curr = FREE_HEAD; curr != NULL; curr = curr->next) {
 		size_t curr_bsize = mem_header_realsize(curr);
@@ -402,13 +406,28 @@ void* mem_dispense(size_t size) {
 			mem_set(curr);
 			size_t remainder = curr_bsize - user_bsize;
 			if (remainder <= DATA_SIZE) {
+				mem_unchain(curr);
+				mem_confine(curr, curr_bsize);
+				mem_set(curr);
 				return mem_get_user_from_header(curr);
 			} else {
 				return mem_frag_malloc(curr, user_bsize);
-				//return mem_get_user_from_header(curr);
 			}
 		}
-	}	
+	}
+	if (HEAP_TAIL != NULL) {
+		footer* tail_footer = mem_get_footer_from_end(HEAP_TAIL);
+		size_t tail_bsize = mem_footer_realsize(tail_footer);
+		if (!mem_footer_check(tail_footer)) {
+			header* tail_header = mem_get_header_from_footer(tail_footer);
+			if (tail_bsize <= user_bsize) {
+				return mem_extend_tail(tail_header, tail_bsize, user_bsize);
+			} else {
+				//fprintf(stderr, "tail_bsize: %zu v. user_bsize %zu\n", tail_bsize, user_bsize);
+				return mem_frag_opt(tail_header, user_bsize);
+			}
+		}
+	}
 	return mem_construct(size);	
 }
 
@@ -493,8 +512,8 @@ void free(void *ptr) {
 		return;
 	}
 	header* curr = mem_get_header_from_user(ptr);
-	mem_unset(curr);
 	memset(ptr, 0, mem_header_usersize(curr));
+	mem_unset(curr);
 	mem_combine(curr);
 	return;	
 }
@@ -567,6 +586,16 @@ void *realloc(void *ptr, size_t size) {
 	} else if (curr_bsize == desired_bsize) {
 		return ptr;
 	} else {
+		//header* next_header = mem_get_next_header_from_header(curr_header);
+		//if (next_header != NULL) {
+		//	size_t next_bsize = mem_header_realsize(next_header);
+		//	if ((next_bsize + curr_bsize) >= desired_bsize) {
+		//		mem_unchain(next_header);
+		//		mem_confine(curr_header, next_bsize + curr_bsize);
+		//		mem_set(curr_header);
+		//		return mem_get_user_from_header(curr_header);
+		//	}
+		//}
 		void* malloc_result = malloc(size);
 		if (malloc_result == NULL) {
 			return NULL;
