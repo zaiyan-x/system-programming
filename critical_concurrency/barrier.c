@@ -20,7 +20,7 @@ int barrier_init(barrier_t *barrier, unsigned int num_threads) {
 	error += pthread_cond_init(&barrier->cv, NULL);
 	barrier->n_threads = num_threads;
 	barrier->count = 0;
-	barrier->time_used = 0;
+	barrier->times_used = 0;
     return error;
 }
 
@@ -28,7 +28,7 @@ int barrier_wait(barrier_t *barrier) {
 	pthread_mutex_lock(&barrier->mtx);
 	barrier->count++;
 	if (barrier->count == barrier->n_threads) {
-		barrier->time_used++;
+		barrier->times_used++;
 		barrier->count = 0; //enough barrier been called release	
 		pthread_cond_broadcast(&barrier->cv);
 	} else { //sleep
