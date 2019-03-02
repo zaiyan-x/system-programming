@@ -174,11 +174,8 @@ void mem_unchain(header* curr_header) {
 
 header* mem_combine_prev(header* curr_header, header* prev_header) {
 	size_t comb_bsize = mem_header_realsize(prev_header) + mem_header_realsize(curr_header);
-	footer* curr_footer = mem_get_footer_from_header(curr_header);
 	curr_header->next = NULL;
 	curr_header->prev = NULL;
-	memset(curr_header, 0, HEADER_SIZE);
-	memset(curr_footer, 0, FOOTER_SIZE);
 	mem_confine(prev_header, comb_bsize);
 	mem_unset(prev_header);
 	return prev_header;
@@ -198,9 +195,6 @@ header* mem_combine_next(header* curr_header, header* next_header) {
 		FREE_HEAD = curr_header;
 	}
 	size_t comb_bsize = mem_header_realsize(curr_header) + mem_header_realsize(next_header);
-	footer* next_footer = mem_get_footer_from_header(next_header);
-	memset(next_header, 0, HEADER_SIZE);
-	memset(next_footer, 0, FOOTER_SIZE);
 	mem_confine(curr_header, comb_bsize);
 	mem_unset(curr_header);
 	return curr_header;
@@ -211,15 +205,6 @@ header* mem_combine_both(header* curr_header, header* prev_header, header* next_
 	mem_unchain(next_header);
 	size_t comb_bsize = mem_header_realsize(curr_header) + mem_header_realsize(prev_header) + mem_header_realsize(next_header);
 		
-	footer* prev_footer = mem_get_footer_from_header(prev_header);
-	footer* curr_footer = mem_get_footer_from_header(curr_header);
-	footer* next_footer = mem_get_footer_from_header(next_header);
-	memset(prev_header, 0, HEADER_SIZE);
-	memset(prev_footer, 0, FOOTER_SIZE);
-	memset(curr_header, 0, HEADER_SIZE);
-	memset(curr_footer, 0, FOOTER_SIZE);
-	memset(next_header, 0, HEADER_SIZE);
-	memset(next_footer, 0, FOOTER_SIZE);
 	mem_confine(prev_header, comb_bsize);
 	mem_unset(prev_header);
 	return prev_header;
