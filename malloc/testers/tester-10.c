@@ -4,7 +4,6 @@
  */
  
 #include "tester-utils.h"
-
 #define SIZE (128 * M)
 #define ITERS 100000
 

@@ -27,7 +27,7 @@ static size_t MEM_ALIGN_SIZE = 8;
 static header* FREE_HEAD = NULL;
 static void* HEAP_HEAD = NULL;
 static void* HEAP_TAIL = NULL;
-static size_t FRAG_LIMIT = 4 * K;
+static size_t FRAG_LIMIT = 48;
 bool mem_header_check(header* curr) {
 	return (curr->bsize) & 1;
 }
@@ -180,6 +180,7 @@ header* mem_combine_prev(header* curr_header, header* prev_header) {
 	memset(curr_header, 0, HEADER_SIZE);
 	memset(curr_footer, 0, FOOTER_SIZE);
 	mem_confine(prev_header, comb_bsize);
+	mem_unset(prev_header);
 	return prev_header;
 }
 
@@ -201,6 +202,7 @@ header* mem_combine_next(header* curr_header, header* next_header) {
 	memset(next_header, 0, HEADER_SIZE);
 	memset(next_footer, 0, FOOTER_SIZE);
 	mem_confine(curr_header, comb_bsize);
+	mem_unset(curr_header);
 	return curr_header;
 }
 
@@ -219,6 +221,7 @@ header* mem_combine_both(header* curr_header, header* prev_header, header* next_
 	memset(next_header, 0, HEADER_SIZE);
 	memset(next_footer, 0, FOOTER_SIZE);
 	mem_confine(prev_header, comb_bsize);
+	mem_unset(prev_header);
 	return prev_header;
 }
 
@@ -234,6 +237,7 @@ header* mem_combine_none(header* curr_header) {
 	curr_header->next = FREE_HEAD;
 	FREE_HEAD->prev = curr_header;
 	FREE_HEAD = curr_header;
+	mem_unset(curr_header);
 	return curr_header;
 }	
 
@@ -277,38 +281,8 @@ void* mem_frag_realloc(header* curr_header, size_t dsize) {
 	mem_set(curr_header);
 	header* new_header = mem_get_end_from_header(curr_header);
 	mem_confine(new_header, new_bsize);
-	mem_unset(new_header);
-	new_header->prev = NULL;
-	new_header->next = NULL;
-	curr_header->prev = NULL;
-	curr_header->next = NULL;
 	free(mem_get_user_from_header(new_header));
 	return mem_get_user_from_header(curr_header);
-}
-
-void* mem_frag_opt(header* tail_header, size_t dsize) {
-	if (mem_header_check(tail_header)) {
-		fprintf(stderr, "something wrong with tail_header input");
-		return NULL;
-	}
-	size_t tail_bsize = mem_header_realsize(tail_header);
-	size_t new_bsize = tail_bsize - dsize;
-	mem_confine(tail_header, dsize);
-	mem_set(tail_header);
-	header* new_header = mem_get_end_from_header(tail_header);
-	mem_confine(new_header, new_bsize);
-	mem_unset(new_header);
-	if (tail_header->prev != NULL) {
-		tail_header->prev->next = new_header;
-	}
-	if (tail_header->next != NULL) {
-		tail_header->next->prev = new_header;
-	}
-	new_header->prev = tail_header->prev;
-	new_header->next = tail_header->next;
-	tail_header->prev = NULL;
-	tail_header->next = NULL;
-	return mem_get_user_from_header(tail_header);
 }
 
 /*
@@ -321,12 +295,9 @@ void* mem_frag_opt(header* tail_header, size_t dsize) {
 void* mem_frag_malloc(header* curr_header, size_t dsize) {
 	size_t curr_bsize = mem_header_realsize(curr_header);
 	size_t modified_bsize = curr_bsize - dsize;
-	footer* curr_footer = mem_get_footer_from_header(curr_header);
-	memset(curr_footer, 0, FOOTER_SIZE);
 	mem_confine(curr_header, modified_bsize);
 	mem_unset(curr_header);
 	header* new_header = mem_get_end_from_header(curr_header);
-	memset(new_header, 0, HEADER_SIZE);
 	mem_confine(new_header, dsize);
 	mem_set(new_header);
 	new_header->prev = NULL;
@@ -345,6 +316,7 @@ void* mem_frag_malloc(header* curr_header, size_t dsize) {
 */
 void* mem_construct(size_t size) {
 	size_t bsize = mem_plan(size);
+ 
 	header* curr = (header*) sbrk(bsize);
 	if (curr == (void*) -1) {
 		return NULL;
@@ -369,12 +341,6 @@ void* mem_construct(size_t size) {
  *
 */
 void* mem_extend_tail(header* tail_header, size_t tail_bsize, size_t user_bsize) {
-	if (tail_bsize == user_bsize) {
-		mem_unchain(tail_header);
-		mem_confine(tail_header, user_bsize);
-		mem_set(tail_header);
-		return mem_get_user_from_header(tail_header);
-	}
 	size_t bsize_to_request = user_bsize - tail_bsize;
 	void* curr = sbrk(bsize_to_request);
 	if (curr == (void*)-1) {
@@ -411,7 +377,19 @@ void* mem_dispense(size_t size) {
 			}
 		}
 	}
+	if (HEAP_TAIL != NULL) {
+		footer* tail_footer = mem_get_footer_from_end(HEAP_TAIL);
+		header* tail_header = mem_get_header_from_footer(tail_footer);
+		size_t tail_bsize = mem_footer_realsize(tail_footer);
+		if (tail_bsize > user_bsize && !mem_header_check(tail_header)) {
+			fprintf(stderr, "wtf is going on");
+		}
+		if (tail_bsize < user_bsize && !mem_header_check(tail_header)) {
+			return mem_extend_tail(tail_header, tail_bsize, user_bsize);
+		}
+	}		
 	return mem_construct(size);	
+	
 }
 
 /**
@@ -495,19 +473,21 @@ void free(void *ptr) {
 		return;
 	}
 	header* curr = mem_get_header_from_user(ptr);
-	memset(ptr, 0, mem_header_usersize(curr));
 	mem_unset(curr);
 	mem_combine(curr);
 	return;	
 }
 
-void* mem_combine_next_realloc(header* curr_header, header* next_header, size_t comb_bsize) {
+void* mem_combine_next_realloc(header* curr_header, header* next_header, size_t comb_bsize, size_t dsize) {
 	mem_unchain(next_header);
-	memset(mem_get_footer_from_header(next_header), 0, FOOTER_SIZE);
-	memset(next_header, 0, HEADER_SIZE);
 	mem_confine(curr_header, comb_bsize);
 	mem_set(curr_header);
-	return mem_get_user_from_header(curr_header);
+	size_t remainder = comb_bsize - dsize;
+	if (remainder <= FRAG_LIMIT) {
+		return mem_get_user_from_header(curr_header);
+	} else {
+		return mem_frag_realloc(curr_header, dsize);
+	}
 }
 
 /**
@@ -549,7 +529,6 @@ void* mem_combine_next_realloc(header* curr_header, header* next_header, size_t 
  *    The type of this pointer is void*, which can be cast to the desired
  *    type of data pointer in order to be dereferenceable.
 : FAILED=(92)
-
  *    If the function failed to allocate the requested block of memory,
  *    a NULL pointer is returned, and the memory block pointed to by
  *    argument ptr is left unchanged.
@@ -582,7 +561,7 @@ void *realloc(void *ptr, size_t size) {
 			header* next_header = mem_get_end_from_header(curr_header);
 			size_t comb_bsize = curr_bsize + mem_header_realsize(next_header);
 			if (comb_bsize >= desired_bsize && !mem_header_check(next_header)) {
-				return mem_combine_next_realloc(curr_header, next_header, comb_bsize);
+				return mem_combine_next_realloc(curr_header, next_header, comb_bsize, desired_bsize);
 			} 
 		}
 		
