@@ -1,6 +1,7 @@
 /**
  * Deadlock Demolition Lab
  * CS 241 - Spring 2019
+ * Collab with Eric Wang - wcwang2 FUCK YOU 374
  */
  
 #include "graph.h"
