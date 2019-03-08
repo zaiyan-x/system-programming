@@ -58,6 +58,7 @@ void* crack_password (void* thread_id) {
 	cdata.initialized = 0;
 	size_t tid = (size_t) thread_id;
 	while (true) {
+		double start_thread_cpu_time = getThreadCPUTime();
 		//CRITICAL SECTION STARTS
 		//Check if it is finished
 		pthread_mutex_lock(&m);
@@ -91,36 +92,19 @@ void* crack_password (void* thread_id) {
 		size_t unknown_length = password_length - known_length;
 		double num_of_comb = pow(NUM_OF_LOWER, unknown_length);
 		memset(unknown_start, 'a', unknown_length);
-//		size_t curr_num_pos;
-//		size_t curr_alpha_padding;
-//		size_t curr_total;
 		const char * hashed;
 		size_t i;	
-		//mega test
-//		printf("name is %s\n hash is %s\n password is %s\n known_length is %zu\n password_length is%zu\n unknown_length is%zu\n", name, hash, password, known_length, password_length, unknown_length); 
-//		printf("num_of_comb %f\n", num_of_comb);	
 		size_t FOUND = 0;
 		for (i = 0; i < num_of_comb; i++) {
-//			curr_num_pos = password_length - 1;
-//			curr_total = i;
-//			while (curr_total > 0 && curr_num_pos >= known_length) {
-//				curr_alpha_padding = curr_total % NUM_OF_LOWER;
-//				printf("curr_alpha_padding is %zu\n", curr_alpha_padding);
-//				password[curr_num_pos] += curr_alpha_padding;
-//				curr_num_pos--;
-//				curr_total = (curr_total - curr_alpha_padding) / NUM_OF_LOWER;
-//			}
 			if (i > 0) {
 				incrementString(unknown_start);
 			}			
-//			puts(password);
 			hashed = crypt_r(password, "xx", &cdata);
 			if (strcmp(hashed, hash) == 0) {
-				v1_print_thread_result(tid, name, password, i + 1, getThreadCPUTime(), 0);
+				v1_print_thread_result(tid, name, password, i + 1, getThreadCPUTime() - start_thread_cpu_time, 0);
 				FOUND = 1;
 				break;
 			}
-//			memset(unknown_start, 'a', unknown_length);
 		}
 		if (FOUND == 0) {
 			pthread_mutex_lock(&m);
