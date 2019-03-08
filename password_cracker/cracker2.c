@@ -215,7 +215,7 @@ int start(size_t thread_count) {
 			FOUND_SYNC = false;
 			v2_print_summary(CRACKED_NAME, CRACKED_PASSWORD, CURR_TOTAL_HASH, getTime() - start_time, getCPUTime() - start_cpu_time, 0);
 		} else { //FOUND_SYNC == false
-			v2_print_summary(CRACKED_NAME, CRACKED_PASSWORD, CURR_TOTAL_HASH, getTime() - start_time, getCPUTime() - start_cpu_time, 1);
+			v2_print_summary(NAME[i], CRACKED_PASSWORD, CURR_TOTAL_HASH, getTime() - start_time, getCPUTime() - start_cpu_time, 1);
 		}
 		heap_cleaner(i);
 	}
