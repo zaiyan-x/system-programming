@@ -1,26 +1,22 @@
 /**
  * Ideal Indirection Lab
  * CS 241 - Spring 2019
+ * Collab with Eric Wang - wcwang2 :)
  */
  
+
 #include "mmu.h"
 #include <assert.h>
 #include <dirent.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdbool.h> 
 
-mmu *mmu_create() {
-    mmu *my_mmu = calloc(1, sizeof(mmu));
-    my_mmu->tlb = tlb_create();
-    return my_mmu;
-}
-
-void mmu_read_from_virtual_address(mmu *this, addr32 virtual_address,
-                                   size_t pid, void *buffer, size_t num_bytes) {
-    assert(this);
-    assert(pid < MAX_PROCESS_ID);
-    assert(num_bytes + (virtual_address % PAGE_SIZE) <= PAGE_SIZE);
+void lazy(mmu* this, addr32 virtual_address, size_t pid, void* buffer, const void* buffer2, size_t num_bytes, bool read) { 
+	assert(this); 
+	assert(pid < MAX_PROCESS_ID); 
+	assert(num_bytes + (virtual_address % PAGE_SIZE) <= PAGE_SIZE); 
 	if (virtual_address == 0) { 
 		mmu_raise_segmentation_fault(this); 
 		return; 
@@ -38,56 +34,12 @@ void mmu_read_from_virtual_address(mmu *this, addr32 virtual_address,
 			addr32 frame = ask_kernel_for_frame((page_table_entry*)pde); 
 			pde -> base_addr = frame >> 12; 
 			read_page_from_disk((page_table_entry*)pde); 
-			pde -> present = 1; 
-		} 
-		page_table* pt = (page_table*)(uintptr_t)(pde -> base_addr << 12); 
-		addr32 offset = (virtual_address >> 12) & 0x3FF; 
-		pte = &pt -> entries[offset]; 
-		tlb_add_pte(&this -> tlb, virtual_address >> 12, pte); 
-	} 
-	if (pte -> present == 0) { 
-		mmu_raise_page_fault(this); 
-		addr32 frame = ask_kernel_for_frame(pte); 
-		pte -> base_addr = frame >> 12; 
-		read_page_from_disk(pte); 
-		pte -> present = 1; 
-	} 
-	addr32 address = (pte -> base_addr) << 12; 
-	if (!address_in_segmentations(this -> segmentations[pid], virtual_address)) { 
-		mmu_raise_segmentation_fault(this); 
-		return; 
-	} 
-	pte -> accessed = 1; 
-	addr32 real = address + (virtual_address & 0xFFF); 
-	memcpy(buffer, (void*)(uintptr_t)real, num_bytes); 
-}
-
-void mmu_write_to_virtual_address(mmu *this, addr32 virtual_address, size_t pid,
-                                  const void *buffer, size_t num_bytes) {
-    assert(this);
-    assert(pid < MAX_PROCESS_ID);
-    assert(num_bytes + (virtual_address % PAGE_SIZE) <= PAGE_SIZE);
-    if (virtual_address == 0) { 
-		mmu_raise_segmentation_fault(this); 
-		return; 
-	} 
-	if (this -> curr_pid != pid) { 
-		this -> curr_pid = pid; 
-		tlb_flush(&this -> tlb); 
-	} 
-	page_table_entry* pte = tlb_get_pte(&this -> tlb, virtual_address >> 12); 
-	if (!pte) { 
-		mmu_tlb_miss(this); 
-		page_directory_entry* pde = &((this -> page_directories[pid] -> entries)[virtual_address >> 22]); 
-		if (pde -> present == 0) { 
-			mmu_raise_page_fault(this); 
-			addr32 frame = ask_kernel_for_frame((page_table_entry*)pde); 
 			pde -> base_addr = frame >> 12; 
 			read_page_from_disk((page_table_entry*)pde); 
 			pde -> present = 1; 
 		} 
 		page_table* pt = (page_table*)(uintptr_t)(pde -> base_addr << 12); 
-		addr32 offset = (virtual_address >> 12) & 0x3FF; 
+		addr32 offset = (virtual_address >> 12) & 0x3ff; 
 		pte = &pt -> entries[offset]; 
 		tlb_add_pte(&this -> tlb, virtual_address >> 12, pte); 
 	} 
@@ -97,7 +49,7 @@ void mmu_write_to_virtual_address(mmu *this, addr32 virtual_address, size_t pid,
 		pte -> base_addr = frame >> 12; 
 		read_page_from_disk(pte); 
 		pte -> present = 1; 
-		if (virtual_address >= 0x08052000 && virtual_address <= 0x08072000) pte -> read_write = 1; 
+		if (!read && virtual_address >= 0x08052000 && virtual_address <= 0x08072000) pte -> read_write = 1; 
 	} 
 	addr32 address = (pte -> base_addr) << 12; 
 	if (!address_in_segmentations(this -> segmentations[pid], virtual_address)) { 
@@ -105,9 +57,24 @@ void mmu_write_to_virtual_address(mmu *this, addr32 virtual_address, size_t pid,
 		return; 
 	} 
 	pte -> accessed = 1; 
-	pte -> dirty = 1; 
-	addr32 real = address + (virtual_address & 0xFFF); 
-	memcpy((void*)(uintptr_t)real, buffer, num_bytes); 
+	if (!read) pte -> dirty = 1; 
+	addr32 real = address + (virtual_address & 0xfff); 
+	if (read) memcpy(buffer, (void*)(uintptr_t)real, num_bytes); 
+	else memcpy((void*)(uintptr_t)real, buffer2, num_bytes); 
+} 
+
+mmu *mmu_create() {
+    mmu *my_mmu = calloc(1, sizeof(mmu));
+    my_mmu->tlb = tlb_create();
+    return my_mmu;
+}
+
+void mmu_read_from_virtual_address(mmu *this, addr32 virtual_address, size_t pid, void *buffer, size_t num_bytes) {
+	lazy(this, virtual_address, pid, buffer, NULL, num_bytes, true); 
+}
+
+void mmu_write_to_virtual_address(mmu *this, addr32 virtual_address, size_t pid, const void *buffer, size_t num_bytes) {
+	lazy(this, virtual_address, pid, NULL, buffer, num_bytes, false); 
 }
 
 void mmu_tlb_miss(mmu *this) {
