@@ -162,7 +162,7 @@ int execute_file_rule(char * rule_vertex) {
 	vector * neighbor_vector = graph_neighbors(G, rule_vertex);
 	size_t neighbor_size = vector_size(neighbor_vector);
 	int retval = 0;
-	
+	bool is_newer = false;	
 	//Check if it is leaf
 	if (neighbor_size == 0) { //leaf call
 		retval = execute_leaf(rule);
@@ -181,6 +181,7 @@ int execute_file_rule(char * rule_vertex) {
 					retval = 1;
 					continue; //skip
 				} else {
+					is_newer = true;
 					retval = dispatch_task(curr_rule);
 					if (retval == -1) { //descendents failed
 						break;
@@ -193,7 +194,7 @@ int execute_file_rule(char * rule_vertex) {
 				}
 			}
 		}
-		if (retval != -1) {
+		if (retval != -1 && is_newer == true) {
 			retval = execute_leaf(rule);
 		}
 		rule->state = retval;
