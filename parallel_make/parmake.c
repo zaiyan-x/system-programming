@@ -78,8 +78,10 @@ void organize_rule(set * illegal_rule_set,
 	size_t i;
 	bool is_cycle = false;
 	char * curr_goal_rule = NULL;
-	for (i = 0; i < vector_size(goal_rule_vector); i++) {
-		set * visited_set = string_set_create();
+	size_t goal_rule_size = vector_size(goal_rule_vector);
+	set * visited_set = NULL;
+	for (i = 0; i < goal_rule_size; i++) {
+		visited_set = string_set_create();
 		curr_goal_rule = vector_get(goal_rule_vector, i);
 		is_cycle = detect_cycle(curr_goal_rule, visited_set);
 		if (is_cycle) {
@@ -88,6 +90,7 @@ void organize_rule(set * illegal_rule_set,
 			set_add(legal_rule_set, curr_goal_rule);
 		}
 		set_destroy(visited_set);
+		visited_set = NULL;
 	}
 	
 	//CLEAN UP
@@ -114,9 +117,6 @@ int execute_leaf(rule_t * rule) {
 	} else { //success
 		retval = 1;
 	}
-	
-	//CLEAN UP
-	vector_destroy(cmd_vec);
 	return retval;		
 }
 
@@ -144,6 +144,9 @@ int execute_command_rule(char * rule_vertex) {
 			if (retval == -1) { //descendents failed
 				break;
 			}
+		}
+		if (retval != -1) {
+			retval = execute_leaf(rule);
 		}
 		rule->state = retval;
 	}
@@ -189,6 +192,9 @@ int execute_file_rule(char * rule_vertex) {
 					break;
 				}
 			}
+		}
+		if (retval != -1) {
+			retval = execute_leaf(rule);
 		}
 		rule->state = retval;
 	}
