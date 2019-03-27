@@ -1,6 +1,7 @@
 /**
  * mapreduce Lab
  * CS 241 - Spring 2019
+ * Collab with Eric Wang - wcwang2 :))))
  */
  
 #include "utils.h"
@@ -28,14 +29,14 @@ int main(int argc, char **argv) {
 	// Create an input pipe for each mapper.
 	int mapper_pipe[mapper_count][2]; 
     for (int i = 0; i < mapper_count; i++) { 
-		pipe(mapper_pipe[i]); 
+		pipe2(mapper_pipe[i], O_CLOEXEC); 
 		descriptors_add(mapper_pipe[i][0]); 
 		descriptors_add(mapper_pipe[i][1]); 
 	} 
 	
 	// Create one input pipe for the reducer.
 	int reducer_pipe[2]; 
-	pipe(reducer_pipe); 
+	pipe2(reducer_pipe, O_CLOEXEC); 
 	descriptors_add(reducer_pipe[0]); 
 	descriptors_add(reducer_pipe[1]); 
     
@@ -44,14 +45,15 @@ int main(int argc, char **argv) {
 	descriptors_add(output_fd); 
 
     // Start a splitter process for each mapper.
-	pid_t splitter_pids[mapper_count]; 
 	for (int i = 0; i < mapper_count; i++) {  
-		splitter_pids[i] = fork(); 
-		if (splitter_pids[i] == 0) { // child
-			dup2(mapper_pipe[i][1], 1); 
-			descriptors_closeall();
-			descriptors_destroy();
-			int status = execlp("./splitter", "./splitter", input_file, mapper_count, i, NULL); 
+		pid_t splitter_pid = fork(); 
+		if (splitter_pid == 0) { // child
+			dup2(mapper_pipe[i][1], 1);
+			char num_of_mapper[10];
+			snprintf(num_of_mapper, 10, "%d", mapper_count);
+			char current_mapper[10];
+			snprintf(current_mapper, 10, "%d", i); 
+			int status = execlp("./splitter", "./splitter", input_file, num_of_mapper, current_mapper, NULL); 
 			print_nonzero_exit_status("./splitter", status); 
 			exit(1); 
 		} 
@@ -64,8 +66,6 @@ int main(int argc, char **argv) {
 		if (mapper_pids[i] == 0) { // child 
 			dup2(mapper_pipe[i][0], 0); 
 			dup2(reducer_pipe[1], 1); 
-			descriptors_closeall();
-			descriptors_destroy();
 			int status = execlp(mapper_executable, mapper_executable, NULL); 
 			print_nonzero_exit_status(mapper_executable, status); 
 			exit(1); 
@@ -77,20 +77,15 @@ int main(int argc, char **argv) {
 	if (reducer_pid == 0) { // child 
 		dup2(reducer_pipe[0], 0); 
 		dup2(output_fd, 1); 
-		descriptors_closeall();
-		descriptors_destroy();
 		int status = execlp(reducer_executable, reducer_executable, NULL); 
 		print_nonzero_exit_status(reducer_executable, status); 
 		exit(1); 
 	} 
 
 	// Wait for the reducer to finish 
-	else { // parent 
-		descriptors_closeall();
-		descriptors_destroy();
-		int status; 
-		waitpid(reducer_pid, &status, 0); 
-	} 
+
+	descriptors_closeall();
+	descriptors_destroy();
 
 	while (waitpid((pid_t)(-1), 0, WNOHANG) > 0) {
 		continue;
