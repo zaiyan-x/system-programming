@@ -52,7 +52,9 @@ int main(int argc, char **argv) {
 			char num_of_mapper[10];
 			snprintf(num_of_mapper, 10, "%d", mapper_count);
 			char current_mapper[10];
-			snprintf(current_mapper, 10, "%d", i); 
+			snprintf(current_mapper, 10, "%d", i);
+			descriptors_closeall();
+			descriptors_destroy(); 
 			int status = execlp("./splitter", "./splitter", input_file, num_of_mapper, current_mapper, NULL); 
 			print_nonzero_exit_status("./splitter", status); 
 			exit(1); 
@@ -65,7 +67,9 @@ int main(int argc, char **argv) {
 		mapper_pids[i] = fork(); 
 		if (mapper_pids[i] == 0) { // child 
 			dup2(mapper_pipe[i][0], 0); 
-			dup2(reducer_pipe[1], 1); 
+			dup2(reducer_pipe[1], 1);
+			descriptors_closeall();
+			descriptors_destroy(); 
 			int status = execlp(mapper_executable, mapper_executable, NULL); 
 			print_nonzero_exit_status(mapper_executable, status); 
 			exit(1); 
@@ -76,7 +80,9 @@ int main(int argc, char **argv) {
 	pid_t reducer_pid = fork(); 
 	if (reducer_pid == 0) { // child 
 		dup2(reducer_pipe[0], 0); 
-		dup2(output_fd, 1); 
+		dup2(output_fd, 1);
+		descriptors_closeall();
+		descriptors_destroy();
 		int status = execlp(reducer_executable, reducer_executable, NULL); 
 		print_nonzero_exit_status(reducer_executable, status); 
 		exit(1); 
