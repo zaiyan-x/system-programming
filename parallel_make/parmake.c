@@ -128,40 +128,41 @@ rule_t * next_rule(rule_t * curr_rule) {
 	//ZERO CHILDREN
 	if (child_size == 0) {
 		next = curr_rule;
-		return next;
-	}
-	//ELSE Check all children
-	size_t i;
-	bool child_all_done = true;
-	bool child_failed = false;
-	rule_t * child_rule = NULL;
-	int child_state = 0;
-	for (i = 0; i < child_size; i++) {
-		child_rule = graph_get_vertex_value(G, vector_get(child_vector, i));
-		pthread_mutex_lock(&m_in);
-		child_state = child_rule->state;
-		pthread_mutex_unlock(&m_in);
-		if (child_state == 0) {
-			next = next_rule(child_rule);
-			child_all_done = false;
-			if (next != 0) {
-				break;
+	} else {
+		//ELSE Check all children
+		size_t i;
+		bool child_all_done = true;
+		bool child_failed = false;
+		rule_t * child_rule = NULL;
+		int child_state = 0;
+		for (i = 0; i < child_size; i++) {
+			child_rule = graph_get_vertex_value(G, vector_get(child_vector, i));
+			pthread_mutex_lock(&m_in);
+			child_state = child_rule->state;
+			pthread_mutex_unlock(&m_in);
+			if (child_state == 0) {
+				next = next_rule(child_rule);
+				child_all_done = false;
+				if (next != 0) {
+					break;
+				}
+			} else if (child_state == 1) {
+				child_all_done = false;
+			} else if (child_state == -1) {
+				child_failed = true;
+			} else { //child_state == 2
+		 		//Do Nothing
 			}
-		} else if (child_state == 1) {
-			child_all_done = false;
-		} else if (child_state == -1) {
-			child_failed = true;
-		} else { //child_state == 2
-		 	//Do Nothing
+		}
+		if (child_all_done) {
+			if (child_failed == true) {
+				curr_rule->state = -1;
+			} else {
+				next = curr_rule;
+			}
 		}
 	}
-	if (child_all_done) {
-		if (child_failed == true) {
-			curr_rule->state = -1;
-		} else {
-			next = curr_rule;
-		}
-	}
+	vector_destroy(child_vector);
 	return next;
 }
 
@@ -200,7 +201,7 @@ rule_t * fetch_rule() {
  * Threads working environment.
  * After being created, threads will enter here.
 */
-void * make_worker(void * null) {
+void * make_worker(void * num_threads) {
 	while (true) {	
 		pthread_mutex_lock(&m_out);
 		if (vector_size(GOAL_VECTOR) == 0) {
@@ -219,7 +220,9 @@ void * make_worker(void * null) {
 				pthread_mutex_unlock(&m_out);
 				pthread_exit(0);
 			}
-			pthread_cond_wait(&cv, &m_out);
+			if ((size_t) num_threads != 1) {
+				pthread_cond_wait(&cv, &m_out);
+			}
 		}
 		pthread_mutex_unlock(&m_out);
 		execute_rule(curr_rule);
@@ -242,52 +245,41 @@ int execute_rule(rule_t * curr_rule) {
 	if (is_file) {//current rule is a file
 		vector * child_vector = graph_neighbors(G, rule);
 		size_t child_size = vector_size(child_vector);
-		char * curr_rule = NULL;
+		char * child_rule = NULL;
 		for (i = 0; i < child_size; i++) {
-			curr_rule = vector_get(child_vector, i);
-			if (check_file(curr_rule)) { //curr child is also a file
+			child_rule = vector_get(child_vector, i);
+			if (check_file(child_rule)) { //curr child is also a file
 				struct stat child_stat;
 				struct stat parent_stat;
-				stat(curr_rule, &child_stat);
+				stat(child_rule, &child_stat);
 				stat(rule, &parent_stat);
 				if (difftime(parent_stat.st_mtime, child_stat.st_mtime) > 0) {
 					continue;
 				} else {
 					is_newer = true;
+					break;
 				}
 			}
 		}
 		vector_destroy(child_vector);
 	}
-	rule_t * curr_rule_t = (rule_t *) graph_get_vertex_value(G, rule);
-	int retval = 0;
-	if (is_file == false || (is_file && is_newer)) {
+	int retval = 2;
+	if (is_file == false || is_newer == true) {
 		char * curr_cmd = NULL;
-		rule_t * curr_rule_t = (rule_t *) graph_get_vertex_value(G, rule);
-		vector * cmd_vector = curr_rule_t->commands;
+		vector * cmd_vector = curr_rule->commands;
 		size_t cmd_size = vector_size(cmd_vector);
 		for (i = 0; i < cmd_size; i++) {
 			curr_cmd = vector_get(cmd_vector, i);
-			if (system(curr_cmd) != 0) { //system() failed
+			if (system(curr_cmd)) { //system() failed
 				retval = -1;
 				break;
 			}
 		}
-		if (retval == -1) { //fail
-		} else { //success
-			retval = 2;
-		}
-		pthread_mutex_lock(&m_in);
-		curr_rule_t->state = retval;
-		pthread_mutex_unlock(&m_in);
-		return retval;
-	} else {
-		retval = 2;
-		pthread_mutex_lock(&m_in);
-		curr_rule_t->state = retval;
-		pthread_mutex_lock(&m_in);
-		return retval;
 	}
+	pthread_mutex_lock(&m_in);
+	curr_rule->state = retval;
+	pthread_mutex_unlock(&m_in);
+	return retval;
 }
 
 
@@ -314,7 +306,7 @@ int parmake(char *makefile, size_t num_threads, char **targets) {
 	size_t i;
 	pthread_t threads[num_threads];
 	for (i = 0; i < num_threads; i++) {
-		pthread_create(&threads[i], NULL, make_worker, NULL);
+		pthread_create(&threads[i], NULL, make_worker, (void*) num_threads);
 	}
 
 	//Wair for all workers
