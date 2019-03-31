@@ -327,5 +327,8 @@ int parmake(char *makefile, size_t num_threads, char **targets) {
 	set_destroy(legal_rule_set);
 	vector_destroy(GOAL_VECTOR);
 	graph_destroy(G);
+	pthread_cond_destroy(&cv);
+	pthread_mutex_destroy(&m_out);
+	pthread_mutex_destroy(&m_in);
 	return 0;
 }
