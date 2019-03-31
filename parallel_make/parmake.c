@@ -17,8 +17,14 @@
 #include "set.h"
 
 graph * G;
+vector * GOAL_VECTOR;
+pthread_mutex_t m_in;
+pthread_mutex_t m_out;
+pthread_cond_t cv;
 
 int dispatch_task(char * rule);
+rule_t * next_rule(rule_t * rule);
+int execute_rule(rule_t * rule);
 
 /*
  * This function checks if a string is indeed a file name (openable one).
@@ -98,122 +104,192 @@ void organize_rule(set * illegal_rule_set,
 	return;
 }
 
+/*
+ * state:
+ * -1 = failed
+ * 0  = default
+ * 1  = IP
+ * 2  = FINISHED
+*/
+rule_t * next_rule(rule_t * curr_rule) {
+	//Satisfy Base case first
+	pthread_mutex_lock(&m_in);
+	int curr_rule_state = curr_rule->state;
+	pthread_mutex_unlock(&m_in);
+	if (curr_rule_state != 0) { //base case: found one which's been taken care of
+		return NULL;
+	}
 
-
-int execute_leaf(rule_t * rule) {
+	//Base case passed - There is at least curr_rule can be run
+	//Check children first
+	rule_t * next = NULL;
+	vector * child_vector = graph_neighbors(G, curr_rule->target);
+	size_t child_size = vector_size(child_vector);
+	//ZERO CHILDREN
+	if (child_size == 0) {
+		next = curr_rule;
+		return next;
+	}
+	//ELSE Check all children
 	size_t i;
-	char * curr_cmd = NULL;
-	vector * cmd_vec = rule->commands;
-	size_t cmd_vec_size = vector_size(cmd_vec);
-	int retval = 0;
-	for (i = 0; i < cmd_vec_size; i++) {
-		curr_cmd = vector_get(cmd_vec, i);
-		if (system(curr_cmd) != 0) { //system() failed
-			retval = -1;
-			break;
-		}
-	}
-	if (retval == -1) { //fail
-	} else { //success
-		retval = 1;
-	}
-	return retval;		
-}
-
-int execute_command_rule(char * rule_vertex) {
-	//Prepare things
-	rule_t * rule = (rule_t *) graph_get_vertex_value(G, rule_vertex);
-	//Check if the rule is already executed
-	if (rule->state == 1) {
-		return 1;
-	}
-	//Keeps preparing
-	vector * neighbor_vector = graph_neighbors(G, rule_vertex);
-	size_t neighbor_size = vector_size(neighbor_vector);
-	int retval = 0;
-	//Check if it is leaf
-	if (neighbor_size == 0) { //leaf call
-		retval = execute_leaf(rule);
-		rule->state = retval;
-	} else { //non-leaf call
-		size_t i;
-		char * curr_rule = NULL;
-		for (i = 0; i < neighbor_size; i++) {
-			curr_rule = vector_get(neighbor_vector, i);
-			retval = dispatch_task(curr_rule);
-			if (retval == -1) { //descendents failed
+	bool child_all_done = true;
+	bool child_failed = false;
+	rule_t * child_rule = NULL;
+	int child_state = 0;
+	for (i = 0; i < child_size; i++) {
+		child_rule = graph_get_vertex_value(G, vector_get(child_vector, i));
+		pthread_mutex_lock(&m_in);
+		child_state = child_rule->state;
+		pthread_mutex_unlock(&m_in);
+		if (child_state == 0) {
+			next = next_rule(child_rule);
+			child_all_done = false;
+			if (next != 0) {
 				break;
 			}
+		} else if (child_state == 1) {
+			child_all_done = false;
+		} else if (child_state == -1) {
+			child_failed = true;
+		} else { //child_state == 2
+		 	//Do Nothing
 		}
-		if (retval != -1) {
-			retval = execute_leaf(rule);
-		}
-		rule->state = retval;
 	}
-		
-	//CLEAN UP
-	vector_destroy(neighbor_vector);
-	return retval;
+	if (child_all_done) {
+		if (child_failed == true) {
+			curr_rule->state = -1;
+		} else {
+			next = curr_rule;
+		}
+	}
+	return next;
 }
 
-int execute_file_rule(char * rule_vertex) {
-	//Prepare things
-	rule_t * rule = (rule_t *) graph_get_vertex_value(G, rule_vertex);
-	vector * neighbor_vector = graph_neighbors(G, rule_vertex);
-	size_t neighbor_size = vector_size(neighbor_vector);
-	int retval = 0;
-	bool is_newer = false;	
-	//Check if it is leaf
-	if (neighbor_size == 0) { //leaf call
-		retval = execute_leaf(rule);
-		rule->state = retval;
-	} else { //non-leaf call
-		size_t i;
+/*
+ * Fetch next rule with state of 0.
+*/
+rule_t * fetch_rule() {
+	rule_t * curr_goal = NULL;
+	rule_t * rule = NULL;
+	size_t i;
+	for (i = 0; i < vector_size(GOAL_VECTOR); i++) {
+		curr_goal = graph_get_vertex_value(G, vector_get(GOAL_VECTOR, i));
+		pthread_mutex_lock(&m_in);
+		if (curr_goal->state) {
+			pthread_mutex_unlock(&m_in);
+			vector_erase(GOAL_VECTOR, i);
+			if (vector_size(GOAL_VECTOR) == 0) {
+				pthread_cond_broadcast(&cv);
+				pthread_mutex_unlock(&m_out);
+				pthread_exit(0);
+			}	
+			return fetch_rule();
+		}
+		pthread_mutex_unlock(&m_in);
+		rule = next_rule(curr_goal);
+		if (rule != NULL) {
+			rule->state = 1;
+			break;
+		}
+		//rule is NULL
+	}
+	return rule;
+}
+
+/*
+ * Threads working environment.
+ * After being created, threads will enter here.
+*/
+void * make_worker(void * null) {
+	while (true) {	
+		pthread_mutex_lock(&m_out);
+		if (vector_size(GOAL_VECTOR) == 0) {
+			pthread_cond_broadcast(&cv);
+			pthread_mutex_unlock(&m_out);
+			pthread_exit(0);
+		}
+		rule_t * curr_rule = NULL;
+		while (true) {
+			curr_rule = fetch_rule();
+			if (curr_rule != NULL) {
+				break;
+			}
+			if (vector_size(GOAL_VECTOR) == 0) {
+				pthread_cond_broadcast(&cv);
+				pthread_mutex_unlock(&m_out);
+				pthread_exit(0);
+			}
+			pthread_cond_wait(&cv, &m_out);
+		}
+		pthread_mutex_unlock(&m_out);
+		execute_rule(curr_rule);
+		pthread_cond_broadcast(&cv);
+	}
+} 
+
+
+/*
+ * execute current rule.
+ * return value:
+ * /1/ means rule commands are all successes.
+ * /-1/ means rule commands failed sometime.
+*/
+int execute_rule(rule_t * curr_rule) {
+	char * rule = curr_rule->target;
+	bool is_file = check_file(rule);
+	bool is_newer = false;
+	size_t i;
+	if (is_file) {//current rule is a file
+		vector * child_vector = graph_neighbors(G, rule);
+		size_t child_size = vector_size(child_vector);
 		char * curr_rule = NULL;
-		for (i = 0; i < neighbor_size; i++) {
-			curr_rule = vector_get(neighbor_vector, i);
+		for (i = 0; i < child_size; i++) {
+			curr_rule = vector_get(child_vector, i);
 			if (check_file(curr_rule)) { //curr child is also a file
 				struct stat child_stat;
 				struct stat parent_stat;
 				stat(curr_rule, &child_stat);
-				stat(rule_vertex, &parent_stat);
+				stat(rule, &parent_stat);
 				if (difftime(parent_stat.st_mtime, child_stat.st_mtime) > 0) {
-					retval = 1;
-					continue; //skip
+					continue;
 				} else {
 					is_newer = true;
-					retval = dispatch_task(curr_rule);
-					if (retval == -1) { //descendents failed
-						break;
-					}
-				}
-			} else {
-				retval = dispatch_task(curr_rule);
-				if (retval == -1) { //descendents failed
-					break;
 				}
 			}
 		}
-		if (retval != -1 && is_newer == true) {
-			retval = execute_leaf(rule);
-		}
-		rule->state = retval;
+		vector_destroy(child_vector);
 	}
-	//CLEAN UP
-	vector_destroy(neighbor_vector);
-	return retval;
+	rule_t * curr_rule_t = (rule_t *) graph_get_vertex_value(G, rule);
+	int retval = 0;
+	if (is_file == false || (is_file && is_newer)) {
+		char * curr_cmd = NULL;
+		rule_t * curr_rule_t = (rule_t *) graph_get_vertex_value(G, rule);
+		vector * cmd_vector = curr_rule_t->commands;
+		size_t cmd_size = vector_size(cmd_vector);
+		for (i = 0; i < cmd_size; i++) {
+			curr_cmd = vector_get(cmd_vector, i);
+			if (system(curr_cmd) != 0) { //system() failed
+				retval = -1;
+				break;
+			}
+		}
+		if (retval == -1) { //fail
+		} else { //success
+			retval = 2;
+		}
+		pthread_mutex_lock(&m_in);
+		curr_rule_t->state = retval;
+		pthread_mutex_unlock(&m_in);
+		return retval;
+	} else {
+		retval = 2;
+		pthread_mutex_lock(&m_in);
+		curr_rule_t->state = retval;
+		pthread_mutex_lock(&m_in);
+		return retval;
+	}
 }
 
-/*
- * Separate rule into either command or file
- */
-int dispatch_task(char * rule) {
-	if (check_file(rule)) {
-		return execute_file_rule(rule);
-	} else {
-		return execute_command_rule(rule);
-	}
-}
 
 int parmake(char *makefile, size_t num_threads, char **targets) {
 	//Initiate Graph - TO CLEAR
@@ -227,12 +303,29 @@ int parmake(char *makefile, size_t num_threads, char **targets) {
 	//Reporting
 	SET_FOR_EACH(illegal_rule_set, curr_rule, {print_cycle_failure(curr_rule);});
 
-	//Ready to make
-	SET_FOR_EACH(legal_rule_set, curr_rule, {dispatch_task(curr_rule);});
-	
+	//Prepare stuff
+	GOAL_VECTOR = string_vector_create();
+	SET_FOR_EACH(legal_rule_set, curr_rule, {vector_push_back(GOAL_VECTOR, curr_rule);});
+	pthread_cond_init(&cv, NULL);
+	pthread_mutex_init(&m_out, NULL);
+	pthread_mutex_init(&m_in, NULL);
+
+	//Set worker threads
+	size_t i;
+	pthread_t threads[num_threads];
+	for (i = 0; i < num_threads; i++) {
+		pthread_create(&threads[i], NULL, make_worker, NULL);
+	}
+
+	//Wair for all workers
+	for (i = 0; i < num_threads; i++) {
+		pthread_join(threads[i], NULL);
+	}
+
 	//CLEAN UP
 	set_destroy(illegal_rule_set);
 	set_destroy(legal_rule_set);
+	vector_destroy(GOAL_VECTOR);
 	graph_destroy(G);
 	return 0;
 }

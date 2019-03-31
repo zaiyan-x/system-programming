@@ -11,13 +11,12 @@
 
 // Test your vector here
 int main() { 
-	vector* test = vector_create(NULL, NULL, NULL);
-	vector_resize(test, 13);
-	vector_resize(test, 2);
-	size_t cap = vector_capacity(test);
-	size_t size = vector_size(test);
-	printf("new cap: %zu\n", cap);
-	printf("new size: %zu\n", size);
-	vector_destroy(test);
+	vector * vector_1 = vector_create(string_copy_constructor,
+									  string_destructor,
+									  string_default_constructor);
+	
+	vector_push_back(vector_1, (void*) "Hello World!");
+	
+	puts(vector_get(vector_1, 0));	 	
 }
 
