@@ -2,6 +2,9 @@
  * Charming Chatroom
  * CS 241 - Spring 2019
  */
+
+// Collaborate with Ryan Xu (zxu43) 
+
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netdb.h>
@@ -75,19 +78,53 @@ void cleanup() {
  *    - perror() for any other call
  */
 void run_server(char *port) {
-    /*QUESTION 1*/
-    /*QUESTION 2*/
-    /*QUESTION 3*/
-
-    /*QUESTION 8*/
-
-    /*QUESTION 4*/
-    /*QUESTION 5*/
-    /*QUESTION 6*/
-
-    /*QUESTION 9*/
-
-    /*QUESTION 10*/
+	int fd = socket(AF_INET, SOCK_STREAM, 0); 
+	int val = 1; 
+	int fail = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(int)); 
+	if (fail) { 
+		perror("Failed!\n"); 
+		exit(1); 
+	} 
+	struct addrinfo hints; 
+	struct addrinfo* result; 
+	memset(&hints, 0, sizeof(struct addrinfo)); 
+	hints.ai_family = AF_INET; 
+	hints.ai_socktype = SOCK_STREAM; 
+	hints.ai_flags = AI_PASSIVE; 
+	fail = getaddrinfo(NULL, port, &hints, &result); 
+	if (fail) { 
+		perror("Failed!\n"); 
+		exit(1); 
+	} 
+	if (bind(fd, result -> ai_addr, result -> ai_addrlen)) { 
+		perror("Failed!\n"); 
+		exit(1); 
+	} 
+	if (listen(fd, 10)) { 
+		perror("Failed!\n"); 
+		exit(1); 
+	} 
+	for (size_t i = 0; i < MAX_CLIENTS; i++) clients[i] = -1; 
+	pthread_t workers[MAX_CLIENTS]; 
+	serverSocket = fd; 
+	while (!endSession) { 
+		int client_fd = accept(fd, NULL, NULL); 
+		if (client_fd == -1) break; 
+		long l; 
+		pthread_mutex_lock(&mutex); 
+		for (l = 0; l < MAX_CLIENTS; l++) { 
+			if (clients[l] == -1) break; 
+		} 
+		if (l == MAX_CLIENTS) { 
+			if (shutdown(client_fd, SHUT_RDWR)) perror("Failed!\n"); 
+			close(client_fd); 
+			continue; 
+		} 
+		clients[l] = client_fd; 
+		clientsCount++; 
+		pthread_mutex_unlock(&mutex); 
+		pthread_create(&workers[l], NULL, process_client, (void*)l); 
+	} 
 }
 
 /**

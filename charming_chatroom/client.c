@@ -3,6 +3,8 @@
  * CS 241 - Spring 2019
  */
 
+// Collaborated with Ryan Xu(zxu43) 
+
 #include <errno.h>
 #include <netdb.h>
 #include <pthread.h>
@@ -30,6 +32,8 @@ void close_program(int signal);
  */
 void close_server_connection() {
     // Your code here
+	shutdown(serverSocket, SHUT_RD); 
+	close(serverSocket); 
 }
 
 /**
@@ -42,17 +46,16 @@ void close_server_connection() {
  * Returns integer of valid file descriptor, or exit(1) on failure.
  */
 int connect_to_server(const char *host, const char *port) {
-    /*QUESTION 1*/
-    /*QUESTION 2*/
-    /*QUESTION 3*/
-
-    /*QUESTION 4*/
-    /*QUESTION 5*/
-
-    /*QUESTION 6*/
-
-    /*QUESTION 7*/
-    return -1;
+	int fd = socket(AF_INET, SOCK_STREAM, 0); 
+	struct addrinfo hints; 
+	struct addrinfo* result; 
+	memset(&hints, 0, sizeof(hints)); 
+	hints.ai_family = AF_INET; 
+	hints.ai_socktype = SOCK_STREAM; 
+	int info = getaddrinfo(host, port, &hints, &result); 
+	if (info) exit(1); 
+	if (connect(fd, result -> ai_addr, result -> ai_addrlen) == -1) exit(1); 
+	return fd; 
 }
 
 typedef struct _thread_cancel_args {
