@@ -125,6 +125,7 @@ void run_server(char *port) {
 		pthread_mutex_unlock(&mutex); 
 		pthread_create(&workers[l], NULL, process_client, (void*)l); 
 	} 
+	freeaddrinfo(result); 
 }
 
 /**

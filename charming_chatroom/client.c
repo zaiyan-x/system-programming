@@ -21,7 +21,7 @@
 
 static volatile int serverSocket;
 static pthread_t threads[2];
-
+static struct addrinfo* result; 
 void *write_to_server(void *arg);
 void *read_from_server(void *arg);
 void close_program(int signal);
@@ -32,7 +32,7 @@ void close_program(int signal);
  */
 void close_server_connection() {
     // Your code here
-	shutdown(serverSocket, SHUT_RD); 
+	freeaddrinfo(result); 
 	close(serverSocket); 
 }
 
@@ -48,16 +48,11 @@ void close_server_connection() {
 int connect_to_server(const char *host, const char *port) {
 	int fd = socket(AF_INET, SOCK_STREAM, 0); 
 	struct addrinfo hints; 
-	struct addrinfo* result; 
-	memset(&hints, 0, sizeof(hints)); 
+	memset(&hints, 0, sizeof(struct addrinfo)); 
 	hints.ai_family = AF_INET; 
 	hints.ai_socktype = SOCK_STREAM; 
-	int info = getaddrinfo(host, port, &hints, &result);
-	freeaddrinfo(result);	 
-	if (info || connect(fd, result -> ai_addr, result -> ai_addrlen) == -1) {
-		freeaddrinfo(result);
-		exit(1);
-	}
+	int fail = getaddrinfo(host, port, &hints, &result); 
+	if (fail || connect(fd, result -> ai_addr, result -> ai_addrlen) == -1) exit(1); 
 	return fd; 
 }
 
