@@ -1,6 +1,7 @@
 /**
  * Charming Chatroom
  * CS 241 - Spring 2019
+ * Collab with Eric Wang - wcwang2
  */
 #include <arpa/inet.h>
 #include <stdio.h>
@@ -43,33 +44,33 @@ ssize_t write_message_size(size_t size, int socket) {
 }
 
 ssize_t read_all_from_socket(int socket, char *buffer, size_t count) {
-	ssize_t byte_to_read = count;
 	ssize_t byte_read = 0;
-	while (byte_to_read) {
-		byte_read = read(socket, buffer + count - byte_to_read, byte_to_read);
-		if (byte_read <= 0) {
-			if (byte_read == -1 && errno == EINTR) {
+	ssize_t byte_read_curr = 0;
+	while (byte_read < (ssize_t) count) {
+		byte_read_curr = read(socket, buffer + byte_read, count - byte_read);
+		if (byte_read_curr <= 0) {
+			if (byte_read_curr == -1 && errno == EINTR) {
 				continue;
 			}
 		}
-		byte_to_read -= byte_read;
+		byte_read += byte_read_curr;
 	}
 	return count;
 }
 
 ssize_t write_all_to_socket(int socket, const char *buffer, size_t count) {
-    ssize_t byte_to_write = count;
-	ssize_t byte_written = 0;
-	while (byte_to_write) {
-		byte_written = write(socket, buffer + count - byte_to_write, byte_to_write);
-		if (byte_written <= 0) {
-			if (byte_written == -1 && errno == EINTR) {
+    ssize_t byte_written = 0;
+	ssize_t byte_written_curr = 0;
+	while (byte_written < (ssize_t) count) {
+		byte_written_curr = write(socket, buffer + byte_written, count - byte_written);
+		if (byte_written_curr <= 0) {
+			if (byte_written_curr == -1 && errno == EINTR) {
 				continue;
 			}
-			perror(strerror(byte_written));
-			return byte_written;
+			perror(strerror(byte_written_curr));
+			return byte_written_curr;
 		}
-		byte_to_write -= byte_written;
+		byte_written += byte_written_curr;
 	}
 	return count;
 }

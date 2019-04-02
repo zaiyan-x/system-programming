@@ -1,9 +1,9 @@
 /**
  * Charming Chatroom
  * CS 241 - Spring 2019
+ * Collab with Eric Wang - wcwang2
  */
 
-// Collaborated with Ryan Xu(zxu43) 
 
 #include <errno.h>
 #include <netdb.h>
@@ -52,9 +52,12 @@ int connect_to_server(const char *host, const char *port) {
 	memset(&hints, 0, sizeof(hints)); 
 	hints.ai_family = AF_INET; 
 	hints.ai_socktype = SOCK_STREAM; 
-	int info = getaddrinfo(host, port, &hints, &result); 
-	if (info) exit(1); 
-	if (connect(fd, result -> ai_addr, result -> ai_addrlen) == -1) exit(1); 
+	int info = getaddrinfo(host, port, &hints, &result);
+	freeaddrinfo(result);	 
+	if (info || connect(fd, result -> ai_addr, result -> ai_addrlen) == -1) {
+		freeaddrinfo(result);
+		exit(1);
+	}
 	return fd; 
 }
 

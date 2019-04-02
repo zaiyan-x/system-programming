@@ -1,9 +1,9 @@
 /**
  * Charming Chatroom
  * CS 241 - Spring 2019
+ * Collab with Eric Wang - wcwang2
  */
 
-// Collaborate with Ryan Xu (zxu43) 
 
 #include <arpa/inet.h>
 #include <errno.h>
