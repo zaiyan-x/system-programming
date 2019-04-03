@@ -52,7 +52,10 @@ int connect_to_server(const char *host, const char *port) {
 	hints.ai_family = AF_INET; 
 	hints.ai_socktype = SOCK_STREAM; 
 	int fail = getaddrinfo(host, port, &hints, &result); 
-	if (fail || connect(fd, result -> ai_addr, result -> ai_addrlen) == -1) exit(1); 
+	if (fail || connect(fd, result -> ai_addr, result -> ai_addrlen) == -1) { 
+		perror("Failed!\n"); 
+		exit(1); 
+	} 
 	return fd; 
 }
 

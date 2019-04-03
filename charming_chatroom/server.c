@@ -36,8 +36,8 @@ static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
  * Used to set flag to end server.
  */
 void close_server() {
-    endSession = 1;
-    // add any additional flags here you want.
+    // add any additional flags here you want. 
+	endSession = 1; 
 }
 
 /**
@@ -100,7 +100,7 @@ void run_server(char *port) {
 		perror("Failed!\n"); 
 		exit(1); 
 	} 
-	if (listen(fd, 10)) { 
+	if (listen(fd, MAX_CLIENTS + 1)) { 
 		perror("Failed!\n"); 
 		exit(1); 
 	} 
@@ -110,20 +110,20 @@ void run_server(char *port) {
 	while (!endSession) { 
 		int client_fd = accept(fd, NULL, NULL); 
 		if (client_fd == -1) break; 
-		long l; 
+		size_t i; 
 		pthread_mutex_lock(&mutex); 
-		for (l = 0; l < MAX_CLIENTS; l++) { 
-			if (clients[l] == -1) break; 
+		for (i = 0; i < MAX_CLIENTS; i++) { 
+			if (clients[i] == -1) break; 
 		} 
-		if (l == MAX_CLIENTS) { 
+		if (i == MAX_CLIENTS) { 
 			if (shutdown(client_fd, SHUT_RDWR)) perror("Failed!\n"); 
 			close(client_fd); 
 			continue; 
 		} 
-		clients[l] = client_fd; 
+		clients[i] = client_fd; 
 		clientsCount++; 
 		pthread_mutex_unlock(&mutex); 
-		pthread_create(&workers[l], NULL, process_client, (void*)l); 
+		pthread_create(&workers[i], NULL, process_client, (void*)i); 
 	} 
 	freeaddrinfo(result); 
 }
