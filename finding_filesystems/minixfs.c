@@ -36,18 +36,75 @@ int minixfs_virtual_path_count =
     sizeof(minixfs_virtual_path_names) / sizeof(minixfs_virtual_path_names[0]);
 
 int minixfs_chmod(file_system *fs, char *path, int new_permissions) {
-    // Thar she blows!
-    return 0;
+	inode * file_inode = get_inode(fs, path);
+	int retval = 0;
+	if (file_inode == NULL) {
+		retval = -1;
+		errno = ENOENT;
+	} else {
+		int type = file_inode->mode >> RWX_BITS_NUMBER;
+		file_inode->mode = new_permissions | type << RWX_BITS_NUMBER;
+		clock_gettime(CLOCK_REALTIME, &file_inode->ctim);
+		retval = 0;
+	}
+	return retval;
 }
 
 int minixfs_chown(file_system *fs, char *path, uid_t owner, gid_t group) {
-    // Land ahoy!
-    return -1;
+	inode * file_inode = get_inode(fs, path);
+	int retval = 0;
+	if (file_inode == NULL) {
+		retval = -1;
+		errno = ENOENT;
+	} else {
+		if (owner != ((uid_t)-1)) {
+			file_inode->uid = owner;
+		}
+		if (group != ((gid_t)-1)) {
+			file_inode->gid = group;
+		}
+		clock_gettime(CLOCK_REALTIME, &file_inode->ctim);
+		retval = 0;
+	} 
+	return retval;
 }
 
 inode *minixfs_create_inode_for_path(file_system *fs, const char *path) {
-    // Land ahoy!
-    return NULL;
+	inode * child_inode = get_inode(fs, path);
+	if (child_inode != NULL) {
+		return NULL;
+	}
+	const char * filename;
+	inode * parent_inode = parent_directory(fs, path, &filename);
+	if (valid_filename(filename) != 1) { //filename derived from path is invalid; return NULL
+		return NULL;
+	}
+	
+	inode_number child_inode_number = first_unused_inode(fs);
+	if (child_inode_number == -1) { //file cannot be created
+		return NULL;
+	}
+
+	//all clear: proceed to create
+	child_inode = fs->inode_root + child_inode_number;
+	init_inode(parent_inode, child_inode);
+	char child_filename[FILE_NAME_LENGTH];
+	strcpy(child_filename, filename);
+
+	//add child dirent to parent directory
+	uint64_t parent_size = parent_inode->size;
+	size_t num_of_file = parent_size / sizeof(data_block);
+	size_t data_block_offset = parent_size % sizeof(data_block);
+
+	if (num_of_file >= NUM_DIRECT_INODES) { //add child_inode to indirect
+		
+	} else { //add child_inode to direct
+		data_block * curr_block = fs->data_root + parent_inode->direct[num_of_file];
+		make_string_from_dirent(((char *) curr_block) + data_block_offset, (minixfs_dirent) {child_filename, child_inode_number});
+	}	
+
+	parent_inode->size += FILE_NAME_ENTRY; 
+	return child_inode;
 }
 
 ssize_t minixfs_virtual_read(file_system *fs, const char *path, void *buf,
