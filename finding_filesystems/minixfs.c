@@ -7,7 +7,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
-
+#include <stdlib.h> 
 /**
  * Virtual paths:
  *  Add your new virtual endpoint to minixfs_virtual_path_names
@@ -90,13 +90,15 @@ inode *minixfs_create_inode_for_path(file_system *fs, const char *path) {
 	init_inode(parent_inode, child_inode);
 	char child_filename[FILE_NAME_LENGTH];
 	strcpy(child_filename, filename);
-
-	//add child dirent to parent directory
-	uint64_t parent_size = parent_inode->size;
-	size_t num_of_file = parent_size / sizeof(data_block);
-	size_t data_block_offset = parent_size % sizeof(data_block);
-
-	parent_inode->size += FILE_NAME_ENTRY; 
+	
+	minixfs_dirent child_dirent = {child_filename, child_inode_number};
+	char * dirent_string = malloc( MAX_DIR_NAME_LEN );
+	make_string_from_dirent(dirent_string, child_dirent);
+	off_t * off = malloc(sizeof(off_t));
+	*off = (off_t) child_inode->size;
+	minixfs_write(fs, path, dirent_string, MAX_DIR_NAME_LEN, off);
+	free(dirent_string);
+	free(off);
 	return child_inode;
 }
 
@@ -113,7 +115,7 @@ ssize_t minixfs_virtual_read(file_system *fs, const char *path, void *buf,
 ssize_t minixfs_write(file_system *fs, const char *path, const void *buf,
                       size_t count, off_t *off) {
     size_t max_possible_file_size = (NUM_DIRECT_INODES + NUM_INDIRECT_INODES) * sizeof(data_block);
-	if (count + off > max_possible_file_size) { //SOB is asking for too much
+	if (count + *off > max_possible_file_size) { //SOB is asking for too much
 		errno = ENOSPC;
 		return -1;
 	}
@@ -128,7 +130,9 @@ ssize_t minixfs_write(file_system *fs, const char *path, const void *buf,
 	size_t offset = (size_t)(*off) % sizeof(data_block);
 	
 	inode * file_inode = get_inode(fs, path);	
-	
+	if (file_inode -> size < *off + count) file_inode -> size = *off + count; 
+	clock_gettime(CLOCK_REALTIME, &file_inode -> atim); 
+	clock_gettime(CLOCK_REALTIME, &file_inode -> mtim); 
 	int indirect = 0; 
 
 	data_block * current_data_block;
@@ -142,17 +146,49 @@ ssize_t minixfs_write(file_system *fs, const char *path, const void *buf,
 	
 	size_t count2 = count; 
 	size_t need; 
+	size_t copied = 0; 
 	if (offset != 0) {
-		need = ((sizeof(data_block) - offset) < count) ? sizeof(data_block) - offset : count; 
+		need = ((sizeof(data_block) - offset) < count2) ? sizeof(data_block) - offset : count2; 
 		memcpy((char*)current_data_block + offset, buf, need); 
 		count2 -= need; 
+		copied += need; 
 		if (written_block_count == NUM_DIRECT_INODES - 1) indirect = 1; 
+		written_block_count++; 
+		buf += need; 
 	} 
-	if (count2 == 0) return (ssize_t)need; 
-	while (indirect == 0) { 
-		
+	if (count2 == 0) { 
+		*off += copied; 
+		return (ssize_t)copied; 
 	} 
-	return -1;
+	while (indirect == 0 && count2 > 0) { 
+		current_data_block = fs -> data_root + file_inode -> direct[written_block_count]; 
+		need = (sizeof(data_block) < count2) ? sizeof(data_block) : count2; 
+		copied += need; 
+		count2 -= need; 
+		memcpy(current_data_block, buf, need); 
+		buf += need; 
+		written_block_count++; 
+		if (written_block_count == NUM_DIRECT_INODES) { 
+			written_block_count -= NUM_DIRECT_INODES; 
+			indirect = 1; 
+		} 
+	} 
+	if (count2 == 0) { 
+		*off += copied; 
+		return (ssize_t)copied; 
+	} 
+	while (1) { 
+		current_data_block = fs -> data_root + file_inode -> indirect + written_block_count; 
+		need = (sizeof(data_block) < count2) ? sizeof(data_block) : count2; 
+		copied += need; 
+		count2 -= need; 
+		memcpy(current_data_block, buf, need); 
+		buf += need; 
+		written_block_count++; 
+		if (count2 == 0) break; 
+	} 
+	*off += copied; 
+	return copied; 
 }
 
 ssize_t minixfs_read(file_system *fs, const char *path, void *buf, size_t count,
