@@ -90,13 +90,17 @@ inode *minixfs_create_inode_for_path(file_system *fs, const char *path) {
 	init_inode(parent_inode, child_inode);
 	char child_filename[FILE_NAME_LENGTH];
 	strcpy(child_filename, filename);
-	
+	char parent_path[MAX_DIR_NAME_LEN];
+	strcpy(parent_path, path);
+	char * last_slash_occurance = strrchr(parent_path, '/');
+	last_slash_occurance = 0;
+		
 	minixfs_dirent child_dirent = {child_filename, child_inode_number};
 	char * dirent_string = malloc( MAX_DIR_NAME_LEN );
 	make_string_from_dirent(dirent_string, child_dirent);
 	off_t * off = malloc(sizeof(off_t));
 	*off = (off_t) child_inode->size;
-	minixfs_write(fs, path, dirent_string, MAX_DIR_NAME_LEN, off);
+	minixfs_write(fs, parent_path, dirent_string, MAX_DIR_NAME_LEN, off);
 	free(dirent_string);
 	free(off);
 	return child_inode;
@@ -120,75 +124,56 @@ ssize_t minixfs_write(file_system *fs, const char *path, const void *buf,
 		return -1;
 	}
 	size_t block_count = (count + (size_t) (*off)) / sizeof(data_block);
-	if ((count + (size_t)(*off)) % sizeof(data_block) != 0) block_count++; 
+	if ((count + (size_t)(*off)) % sizeof(data_block) != 0) {
+		block_count++; 
+	}
 	if (minixfs_min_blockcount(fs, path, block_count) == -1) {
 		errno = ENOSPC;
 		return -1;
 	}
 
+	// prepare to memcpy
 	size_t written_block_count = (size_t)(*off) / sizeof(data_block);
-	size_t offset = (size_t)(*off) % sizeof(data_block);
-	
+	size_t total_bytes_to_write = count;
+	size_t total_bytes_written = 0;
+	size_t curr_bytes_to_write = 0;
+	size_t curr_bytes_able_to_write = 0;
 	inode * file_inode = get_inode(fs, path);	
-	if (file_inode -> size < *off + count) file_inode -> size = *off + count; 
-	clock_gettime(CLOCK_REALTIME, &file_inode -> atim); 
-	clock_gettime(CLOCK_REALTIME, &file_inode -> mtim); 
-	int indirect = 0; 
-
-	data_block * current_data_block;
-	if (written_block_count < NUM_DIRECT_INODES) {
-		current_data_block = fs->data_root + file_inode->direct[written_block_count];
-	} else { // indirect
-		written_block_count -= NUM_DIRECT_INODES;
-		current_data_block = fs->data_root + file_inode->indirect + written_block_count;
-		indirect = 1; 
+	data_block * curr_data_block;
+	
+	if (file_inode->size < *off + total_bytes_to_write) {
+		file_inode->size = *off + total_bytes_to_write;
+	}
+	clock_gettime(CLOCK_REALTIME, &file_inode->atim);
+	clock_gettime(CLOCK_REALTIME, &file_inode->mtim);
+	
+	while (written_block_count < NUM_DIRECT_INODES && total_bytes_to_write > 0) {
+		curr_data_block = fs->data_root + file_inode->direct[written_block_count];
+		curr_bytes_able_to_write = sizeof(data_block) - ((size_t)(*off) % sizeof(data_block));
+		curr_bytes_to_write = (curr_bytes_able_to_write < total_bytes_to_write) ? curr_bytes_able_to_write : total_bytes_to_write;
+		memcpy(curr_data_block, buf, curr_bytes_to_write);
+		*off += curr_bytes_to_write;
+		total_bytes_to_write -= curr_bytes_to_write;
+		total_bytes_written += curr_bytes_to_write;
+		buf += curr_bytes_to_write;
+		written_block_count++;	
+	}
+	// Adjust block for indirect blocks
+	written_block_count -= NUM_DIRECT_INODES;
+	
+	while (total_bytes_to_write > 0) {
+		curr_data_block = (data_block*)((char*)(fs->data_root + file_inode->indirect) + sizeof(void*) * written_block_count);
+		curr_bytes_able_to_write = sizeof(data_block) - ((size_t)(*off) % sizeof(data_block));
+		curr_bytes_to_write = (curr_bytes_able_to_write < total_bytes_to_write) ? curr_bytes_able_to_write : total_bytes_to_write;
+		memcpy(curr_data_block, buf, curr_bytes_to_write);
+		*off += curr_bytes_to_write;
+		total_bytes_to_write -= curr_bytes_to_write;
+		total_bytes_written += curr_bytes_to_write;
+		buf += curr_bytes_to_write;
+		written_block_count++;
 	}
 	
-	size_t count2 = count; 
-	size_t need; 
-	size_t copied = 0; 
-	if (offset != 0) {
-		need = ((sizeof(data_block) - offset) < count2) ? sizeof(data_block) - offset : count2; 
-		memcpy((char*)current_data_block + offset, buf, need); 
-		count2 -= need; 
-		copied += need; 
-		if (written_block_count == NUM_DIRECT_INODES - 1) indirect = 1; 
-		written_block_count++; 
-		buf += need; 
-	} 
-	if (count2 == 0) { 
-		*off += copied; 
-		return (ssize_t)copied; 
-	} 
-	while (indirect == 0 && count2 > 0) { 
-		current_data_block = fs -> data_root + file_inode -> direct[written_block_count]; 
-		need = (sizeof(data_block) < count2) ? sizeof(data_block) : count2; 
-		copied += need; 
-		count2 -= need; 
-		memcpy(current_data_block, buf, need); 
-		buf += need; 
-		written_block_count++; 
-		if (written_block_count == NUM_DIRECT_INODES) { 
-			written_block_count -= NUM_DIRECT_INODES; 
-			indirect = 1; 
-		} 
-	} 
-	if (count2 == 0) { 
-		*off += copied; 
-		return (ssize_t)copied; 
-	} 
-	while (1) { 
-		current_data_block = fs -> data_root + file_inode -> indirect + written_block_count; 
-		need = (sizeof(data_block) < count2) ? sizeof(data_block) : count2; 
-		copied += need; 
-		count2 -= need; 
-		memcpy(current_data_block, buf, need); 
-		buf += need; 
-		written_block_count++; 
-		if (count2 == 0) break; 
-	} 
-	*off += copied; 
-	return copied; 
+	return total_bytes_written; 
 }
 
 ssize_t minixfs_read(file_system *fs, const char *path, void *buf, size_t count,
