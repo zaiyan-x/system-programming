@@ -122,6 +122,7 @@ ssize_t minixfs_virtual_read(file_system *fs, const char *path, void *buf,
 		}
 		char * virtual_info = block_info_string(used_block);
 		if ((size_t)*off >= strlen(virtual_info)) {
+			free(virtual_info);
 			return 0;
 		}
 		size_t total_bytes_to_read = MIN(count, strlen(virtual_info));
@@ -130,7 +131,6 @@ ssize_t minixfs_virtual_read(file_system *fs, const char *path, void *buf,
 		free(virtual_info);
 		return total_bytes_to_read;	
     }
-    // TODO implement your own virtual file here
     errno = ENOENT;
     return -1;
 }
