@@ -113,6 +113,22 @@ ssize_t minixfs_virtual_read(file_system *fs, const char *path, void *buf,
                              size_t count, off_t *off) {
     if (!strcmp(path, "info")) {
         // TODO implement the "info" virtual file here
+		uint64_t i;
+		ssize_t used_block = 0;
+		for (i = 0; i < fs->meta->dblock_count; i++) {
+			if (get_data_used(fs, i) == 1) { //in use
+				used_block++;
+			}	
+		}
+		char * virtual_info = block_info_string(used_block);
+		if ((size_t)*off >= strlen(virtual_info)) {
+			return 0;
+		}
+		size_t total_bytes_to_read = MIN(count, strlen(virtual_info));
+		*off += total_bytes_to_read;
+		memcpy(buf, virtual_info, total_bytes_to_read);
+		free(virtual_info);
+		return total_bytes_to_read;	
     }
     // TODO implement your own virtual file here
     errno = ENOENT;
