@@ -96,14 +96,14 @@ inode *minixfs_create_inode_for_path(file_system *fs, const char *path) {
 	char parent_path[MAX_DIR_NAME_LEN];
 	strcpy(parent_path, path);
 	char * last_slash_occurance = strrchr(parent_path, '/');
-	last_slash_occurance = 0;
+	*last_slash_occurance = 0;
 		
 	minixfs_dirent child_dirent = {child_filename, child_inode_number};
-	char * dirent_string = malloc( MAX_DIR_NAME_LEN );
+	char * dirent_string = malloc(FILE_NAME_ENTRY);
 	make_string_from_dirent(dirent_string, child_dirent);
 	off_t * off = malloc(sizeof(off_t));
-	*off = (off_t) child_inode->size;
-	minixfs_write(fs, parent_path, dirent_string, MAX_DIR_NAME_LEN, off);
+	*off = (off_t) parent_inode->size;
+	minixfs_write(fs, parent_path, dirent_string, FILE_NAME_ENTRY, off);
 	free(dirent_string);
 	free(off);
 	return child_inode;
@@ -112,7 +112,6 @@ inode *minixfs_create_inode_for_path(file_system *fs, const char *path) {
 ssize_t minixfs_virtual_read(file_system *fs, const char *path, void *buf,
                              size_t count, off_t *off) {
     if (!strcmp(path, "info")) {
-        // TODO implement the "info" virtual file here
 		uint64_t i;
 		ssize_t used_block = 0;
 		for (i = 0; i < fs->meta->dblock_count; i++) {
