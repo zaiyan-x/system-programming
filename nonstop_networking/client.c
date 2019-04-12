@@ -10,8 +10,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
+//MACRO Declaration
+#define 
+
+//Function Declaration
 char **parse_args(int argc, char **argv);
 verb check_args(char **args);
+int client_connect_to_server(const char* host, const char* port);
+
+
 
 /*
  * Sets up a connection to a chatroom server and returns
@@ -25,8 +33,8 @@ verb check_args(char **args);
 */
 int client_connect_to_server(const char * host, const char * port) {
 	//Establish client socket first
-	int client_socket_fd = socket(AF_INET, SOCK_STREAM, 0);
-	if (client_socket_fd == -1) { //failed to create socket
+	int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+	if (socket_fd == -1) { //failed to create socket
 		print_error_message("failed to create client socket!");
 		exit(1);
 	}
@@ -41,7 +49,7 @@ int client_connect_to_server(const char * host, const char * port) {
 		print_error_message("getaddrinfo() failed!");
 		exit(1);
 	}
-	if (connect(client_socket_fd, result->ai_addr, result->ai_addrlen) == -1) {
+	if (connect(socket_fd, result->ai_addr, result->ai_addrlen) == -1) {
 		print_error_message("connect() failed!");
 		exit(1);
 	}
@@ -50,14 +58,18 @@ int client_connect_to_server(const char * host, const char * port) {
 	freeaddrinfo(result);
 
 	//Connection is good, return
-	return client_socket_fd;
+	return socket_fd;
 	
 }
 
 
 int main(int argc, char **argv) {
+	//Parse information
 	char** args = parse_args(argc, argv);
 	verb cmd = check_args(args);
+
+	//Get socket
+	int socket_fd = client_connect_to_server(args[HOSTNAME_IDX])
 }
 
 /**
