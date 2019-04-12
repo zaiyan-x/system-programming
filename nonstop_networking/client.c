@@ -12,7 +12,11 @@
 #include <unistd.h>
 
 //MACRO Declaration
-#define 
+#define HOST_INDEX 0
+#define PORT_INDEX 1
+#define VERB_TYPE_INDEX 2
+#define REMOTE_FILE_INDEX 3
+#define LOCAL_FILE_INDEX 4
 
 //Function Declaration
 char **parse_args(int argc, char **argv);
@@ -66,10 +70,13 @@ int client_connect_to_server(const char * host, const char * port) {
 int main(int argc, char **argv) {
 	//Parse information
 	char** args = parse_args(argc, argv);
-	verb cmd = check_args(args);
+	verb  = check_args(args);
 
 	//Get socket
-	int socket_fd = client_connect_to_server(args[HOSTNAME_IDX])
+	int socket_fd = client_connect_to_server(args[HOST_INDEX], args[PORT_INDEX]);
+	
+	//Ready to send command to server
+	client_send	
 }
 
 /**
