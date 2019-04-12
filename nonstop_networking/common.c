@@ -2,7 +2,16 @@
  * Nonstop Networking
  * CS 241 - Spring 2019
  */
+#include "format.h"
 #include "common.h"
+
+#include <ctype.h>
+#include <string.h>
+#include <errno.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/socket.h>
 
 ssize_t client_write_all_to_socket(int socket, const char* buffer, size_t count) {
 	ssize_t total_byte_written = 0;

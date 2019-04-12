@@ -28,14 +28,15 @@ char **parse_args(int argc, char **argv);
 verb check_args(char **args);
 int client_connect_to_server(const char* host, const char* port);
 void client_send_request(int socket_fd, verb request_verb, char** args);
-
+void client_send_request_first_line(int socket_fd, verb request_verb, char** args);
+void client_send_request_second_line(int socket_fd, verb request_verb, char** args);
 
 void client_send_request_first_line(int socket_fd, verb request_verb, char** args) {
 	//Construct request first
 	size_t line_length = 0;
 	char line[MAX_PROTOCOL_LENGTH];
 	memset(line, 0, MAX_PROTOCOL_LENGTH);
-	if (cmd == LIST) {
+	if (request_verb == LIST) {
 		//1 for \n | 1 for null byte
 		line_length = strlen(args[VERB_TYPE_INDEX]) + 2;
 		sprintf(line, "%s\n", args[VERB_TYPE_INDEX]);
@@ -44,17 +45,40 @@ void client_send_request_first_line(int socket_fd, verb request_verb, char** arg
 		line_length = strlen(args[VERB_TYPE_INDEX]) + strlen(args[REMOTE_FILE_INDEX]) + 3;
 		sprintf(line, "%s %s\n", args[VERB_TYPE_INDEX], args[REMOTE_FILE_INDEX]);
 	}
-
-	ssize_t byte_written = client_write_all_to_socket
+	ssize_t byte_written = client_write_all_to_socket(socket_fd, line, line_length);
+	if (byte_written > 0) {
+		return;
+	} else {
+		print_error_message("client failed to write to socket");
+		exit(1);
+	}
 }
 
 void client_send_request_second_line(int socket_fd, verb request_verb, char** args) {
+	//Construct request second
+	if (request_verb == PUT) {
+		//Try to open file
+		FILE * local_file = fopen(args[LOCAL_FILE_INDEX], "r");
+		if (local_file == NULL) {
+			perror(err_no_such_file);
+			exit(1);
+		}
+		
+		//Proceed to send the request of file_size
+		fseek(local_file, 0, SEEK_END);
+		size_t file_size = ftell(local_file);
+		fseek(local_file, 0, SEEK_SET);
 
+		//Send file_size to server
+		client_write_all_to_socket(socket_fd, (char*) file_size, sizeof(size_t));
+	} else { //GET, LIST, DELETE do not have the second line
+		return;
+	}
 }
 
 void client_send_request(int socket_fd, verb request_verb, char** args) {
-	client_send_request_first_line(int socket_fd, verb request_verb, char** args);
-	client_send_reqeust_second_line(int socket_fd, verb request_verb, char** args);
+	client_send_request_first_line(socket_fd, request_verb, args);
+	client_send_request_second_line(socket_fd, request_verb, args);
 	return;
 }
 
