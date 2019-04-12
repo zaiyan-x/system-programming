@@ -12,6 +12,15 @@
 #include <unistd.h>
 char **parse_args(int argc, char **argv);
 verb check_args(char **args);
+
+/*
+ *
+*/
+int client_connect_to_server(char * host, char * port) {
+
+}
+
+
 int main(int argc, char **argv) {
     // Good luck!
 }
