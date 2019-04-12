@@ -5,9 +5,21 @@
 #include "common.h"
 
 ssize_t client_write_all_to_socket(int socket, const char* buffer, size_t count) {
-	ssize_t byte_written = 0;
+	ssize_t total_byte_written = 0;
 	ssize_t current_byte_written = 0;
-	while (byte_written < (ssize_t) count
+	while (total_byte_written < (ssize_t) count) {
+		current_byte_written = write(socket, buffer + total_byte_written, count - total_byte_written);
+		if (current_byte_written <= 0) {
+			if (current_byte_written == -1 && errno == EINTR) { //retry
+				continue;
+			}
+			if (current_byte_written == -1 && errno != EINTR) { //bad things happened
+				return -1;
+			}
+		}
+		total_byte_written += current_byte_written;
+	}
+	return total_byte_written;
 }
 	       
 /**

@@ -4,6 +4,10 @@
  */
 #include "common.h"
 #include "format.h"
+
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netdb.h>
 #include <ctype.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -17,11 +21,42 @@
 #define VERB_TYPE_INDEX 2
 #define REMOTE_FILE_INDEX 3
 #define LOCAL_FILE_INDEX 4
+#define MAX_PROTOCOL_LENGTH 1024
 
 //Function Declaration
 char **parse_args(int argc, char **argv);
 verb check_args(char **args);
 int client_connect_to_server(const char* host, const char* port);
+void client_send_request(int socket_fd, verb request_verb, char** args);
+
+
+void client_send_request_first_line(int socket_fd, verb request_verb, char** args) {
+	//Construct request first
+	size_t line_length = 0;
+	char line[MAX_PROTOCOL_LENGTH];
+	memset(line, 0, MAX_PROTOCOL_LENGTH);
+	if (cmd == LIST) {
+		//1 for \n | 1 for null byte
+		line_length = strlen(args[VERB_TYPE_INDEX]) + 2;
+		sprintf(line, "%s\n", args[VERB_TYPE_INDEX]);
+	} else {
+		//1 for space | 1 for \n | 1 for null byte
+		line_length = strlen(args[VERB_TYPE_INDEX]) + strlen(args[REMOTE_FILE_INDEX]) + 3;
+		sprintf(line, "%s %s\n", args[VERB_TYPE_INDEX], args[REMOTE_FILE_INDEX]);
+	}
+
+	ssize_t byte_written = client_write_all_to_socket
+}
+
+void client_send_request_second_line(int socket_fd, verb request_verb, char** args) {
+
+}
+
+void client_send_request(int socket_fd, verb request_verb, char** args) {
+	client_send_request_first_line(int socket_fd, verb request_verb, char** args);
+	client_send_reqeust_second_line(int socket_fd, verb request_verb, char** args);
+	return;
+}
 
 
 
@@ -70,13 +105,13 @@ int client_connect_to_server(const char * host, const char * port) {
 int main(int argc, char **argv) {
 	//Parse information
 	char** args = parse_args(argc, argv);
-	verb  = check_args(args);
+	verb request_verb = check_args(args);
 
 	//Get socket
 	int socket_fd = client_connect_to_server(args[HOST_INDEX], args[PORT_INDEX]);
 	
 	//Ready to send command to server
-	client_send	
+	client_send_request(socket_fd, request_verb, args);
 }
 
 
