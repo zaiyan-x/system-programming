@@ -14,15 +14,50 @@ char **parse_args(int argc, char **argv);
 verb check_args(char **args);
 
 /*
- *
+ * Sets up a connection to a chatroom server and returns
+ * the file desciptor associated with the connection.
+ * 
+ * host - Server to connect to.
+ * port - Port to connect to server on.
+ * 
+ * Returns integer of valid file descriptor, or exit(1) on failure.
+ * NOTE: This code is taken from charming_chatroom lab (collab with wcwang2)
 */
-int client_connect_to_server(char * host, char * port) {
+int client_connect_to_server(const char * host, const char * port) {
+	//Establish client socket first
+	int client_socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+	if (client_socket_fd == -1) { //failed to create socket
+		print_error_message("failed to create client socket!");
+		exit(1);
+	}
+	
+	//Acquire addrinfo of the host and port
+	struct addrinfo hints;
+	struct addrinfo * result;
+	memset(&hints, 0, sizeof(struct addrinfo));
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_STREAM;
+	if (getaddrinfo(host, port, &hints, &result)) {
+		print_error_message("getaddrinfo() failed!");
+		exit(1);
+	}
+	if (connect(client_socket_fd, result->ai_addr, result->ai_addrlen) == -1) {
+		print_error_message("connect() failed!");
+		exit(1);
+	}
 
+	//Clean up
+	freeaddrinfo(result);
+
+	//Connection is good, return
+	return client_socket_fd;
+	
 }
 
 
 int main(int argc, char **argv) {
-    // Good luck!
+	char** args = parse_args(argc, argv);
+	verb cmd = check_args(args);
 }
 
 /**
