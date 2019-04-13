@@ -21,7 +21,8 @@
 #define VERB_TYPE_INDEX 2
 #define REMOTE_FILE_INDEX 3
 #define LOCAL_FILE_INDEX 4
-#define MAX_PROTOCOL_LENGTH 1024
+#define MAX_HEADER_SIZE 1024
+#define MAX_R_W_SIZE 1024
 
 //Function Declaration
 char **parse_args(int argc, char **argv);
@@ -30,12 +31,13 @@ int client_connect_to_server(const char* host, const char* port);
 void client_send_request(int socket_fd, verb request_verb, char** args);
 void client_send_request_first_line(int socket_fd, verb request_verb, char** args);
 void client_send_request_second_line(int socket_fd, verb request_verb, char** args);
+void client_receive_response(int socket_fd, verb request_verb, char** args);
 
 void client_send_request_first_line(int socket_fd, verb request_verb, char** args) {
 	//Construct request first
 	size_t line_length = 0;
-	char line[MAX_PROTOCOL_LENGTH];
-	memset(line, 0, MAX_PROTOCOL_LENGTH);
+	char line[MAX_HEADER_SIZE];
+	memset(line, 0, MAX_HEADER_SIZE);
 	if (request_verb == LIST) {
 		//1 for \n | 1 for null byte
 		line_length = strlen(args[VERB_TYPE_INDEX]) + 2;
@@ -70,7 +72,43 @@ void client_send_request_second_line(int socket_fd, verb request_verb, char** ar
 		fseek(local_file, 0, SEEK_SET);
 
 		//Send file_size to server
-		client_write_all_to_socket(socket_fd, (char*) file_size, sizeof(size_t));
+		ssize_t byte_written = 0;
+		byte_written = client_write_all_to_socket(socket_fd, (char*) &file_size, sizeof(size_t));
+		if (byte_written > 0) {
+			return;
+		} else {
+			print_error_message("client failed to write to socket");
+			exit(1);
+		}
+
+		//Proceed to send binary data to server
+		size_t total_byte_written = 0;
+		size_t total_byte_to_write = file_size;
+		size_t current_byte_to_write = 0;
+		size_t current_byte_written = 0;
+		char line[MAX_R_W_SIZE];
+		memset(line, 0, MAX_R_W_SIZE);
+
+		while (total_byte_written < file_size) {
+			current_byte_to_write = (total_byte_to_write < MAX_R_W_SIZE) ? total_byte_to_write : MAX_R_W_SIZE;
+			fread(line, 1, current_byte_to_write, local_file);
+			current_byte_written = client_write_all_to_socket(socket_fd, line, current_byte_to_write);
+			if (current_byte_written == -1) {
+				print_invalid_response();
+				exit(1);
+			} else if (current_byte_written == 0) {
+				print_connection_closed();
+				if (total_byte_to_write > 0) {
+					print_too_little_data();
+				}
+				exit(1);
+			} else {
+				total_byte_written += current_byte_written;
+				total_byte_to_write -= current_byte_written;
+			}
+		}
+		fclose(local_file);
+		return;
 	} else { //GET, LIST, DELETE do not have the second line
 		return;
 	}
@@ -136,6 +174,19 @@ int main(int argc, char **argv) {
 	
 	//Ready to send command to server
 	client_send_request(socket_fd, request_verb, args);
+
+	//Request sent, shutdown the write end of the socket
+	if (shutdown(socket_fd, SHUT_WR) != 0) {
+		print_error_message("client failed to shutdown socket!");
+	}
+
+	//Listen to server's response
+	client_receive_response(socket_fd, request_verb, args);
+
+	//Clean up
+	close(socket_fd);
+	free(args);
+	return 0;
 }
 
 
