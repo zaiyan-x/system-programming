@@ -93,20 +93,10 @@ void client_receive_response_main(int socket_fd, verb request_verb, char** args)
 			memset(line, 0, MAX_R_W_SIZE);
 			current_byte_to_read = (total_byte_to_read < MAX_R_W_SIZE) ? total_byte_to_read : MAX_R_W_SIZE;
 			current_byte_read = client_read_all_from_socket(socket_fd, line, current_byte_to_read);
-			if (current_byte_read == -1) {
-				print_invalid_response();
-				exit(1);
-			} else if (current_byte_read < (ssize_t) current_byte_to_read) {
-				print_connection_closed();
-				if (total_byte_to_read > 0) {
-					print_too_little_data();
-				}
-				exit(1);
-			} else {
-				total_byte_read += current_byte_read;
-				total_byte_to_read -= current_byte_read;
-				fwrite(line, 1, current_byte_read, local_file);
-			}
+			handle_return_value(current_byte_read, current_byte_to_read, total_byte_to_read);
+			total_byte_read += current_byte_read;
+			total_byte_to_read -= current_byte_read;
+			fwrite(line, 1, current_byte_read, local_file);
 		}
 		if (client_read_all_from_socket(socket_fd, line, MAX_R_W_SIZE) != 0) {
 			print_received_too_much_data();
