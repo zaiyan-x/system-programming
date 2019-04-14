@@ -208,7 +208,7 @@ void client_send_request_main(int socket_fd, verb request_verb, char** args) {
 		char line[MAX_R_W_SIZE];
 		memset(line, 0, MAX_R_W_SIZE);
 
-		while (total_byte_written < file_size) {
+		while (total_byte_to_write > 0) {
 			memset(line, 0, MAX_R_W_SIZE);
 			current_byte_to_write = (total_byte_to_write < MAX_R_W_SIZE) ? total_byte_to_write : MAX_R_W_SIZE;
 			fread(line, 1, current_byte_to_write, local_file);
