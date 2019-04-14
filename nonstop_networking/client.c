@@ -118,7 +118,7 @@ void client_receive_response_error(int socket_fd, char** args) {
 	ssize_t byte_read = client_read_line_from_socket(socket_fd, line, MAX_HEADER_SIZE);
 	if (byte_read <= 0) { //something is wrong with the response header
 		print_invalid_response();
-		cleanup(socket_fd, args);
+		clean_up(socket_fd, args);
 		exit(1);
 	}
 	print_error_message(line);
