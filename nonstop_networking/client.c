@@ -195,6 +195,7 @@ void client_send_request_main(int socket_fd, verb request_verb, char** args) {
 		ssize_t byte_written = 0;
 		byte_written = client_write_all_to_socket(socket_fd, (char*) &file_size, sizeof(size_t));
 		if (byte_written <= 0) {
+			print_connection_closed(); //MODIFIED
 			clean_up(socket_fd, args);
 			exit(1);
 		}
