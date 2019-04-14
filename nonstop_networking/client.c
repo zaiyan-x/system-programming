@@ -62,20 +62,10 @@ void client_receive_response_main(int socket_fd, verb request_verb, char** args)
 			memset(line, 0, MAX_R_W_SIZE);
 			current_byte_to_read = (total_byte_to_read < MAX_R_W_SIZE) ? total_byte_to_read : MAX_R_W_SIZE;
 			current_byte_read = client_read_all_from_socket(socket_fd, line, current_byte_to_read);
-			if (current_byte_read == -1) {
-				print_invalid_response();
-				exit(1);
-			} else if ((size_t) current_byte_read < current_byte_to_read) {
-				print_connection_closed();
-				if (total_byte_to_read > 0) {
-					print_too_little_data();
-				}
-				exit(1);
-			} else {
-				total_byte_read += current_byte_read;
-				total_byte_to_read -= current_byte_read;
-				printf("%s", line);
-			}
+			handle_return_value(current_byte_read, current_byte_to_read, total_byte_to_read);
+			total_byte_read += current_byte_read;
+			total_byte_to_read -= current_byte_read;
+			printf("%s", line);
 		}
 		printf("\n");
 		if (client_read_all_from_socket(socket_fd, line, MAX_R_W_SIZE) != 0) {
@@ -127,7 +117,7 @@ void client_receive_response(int socket_fd, verb request_verb, char** args) {
 
 	//Read server response
 	ssize_t byte_read = client_read_line_from_socket(socket_fd, line, MAX_HEADER_SIZE);
-	if (byte_read == -1) { //something is wrong with the response header
+	if (byte_read <= 0) { //something is wrong with the response header
 		print_invalid_response();
 		exit(1);
 	}
