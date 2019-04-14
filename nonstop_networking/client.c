@@ -194,7 +194,7 @@ void client_send_request_main(int socket_fd, verb request_verb, char** args) {
 		//Send file_size to server
 		ssize_t byte_written = 0;
 		byte_written = client_write_all_to_socket(socket_fd, (char*) &file_size, sizeof(size_t));
-		if (handle_return_value(byte_written, sizeof(size_t), sizeof(size_t)) == 1) {
+		if (byte_written <= 0) {
 			clean_up(socket_fd, args);
 			exit(1);
 		}
