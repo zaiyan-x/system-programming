@@ -13,10 +13,6 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 
-void client_clean_up(void) {
-
-}
-
 size_t handle_return_value(ssize_t byte_executed, size_t byte_to_execute, size_t total_byte_to_execute) {
 	if (byte_executed < 0) {
 		print_connection_closed();
