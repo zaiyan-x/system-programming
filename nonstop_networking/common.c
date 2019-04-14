@@ -12,6 +12,22 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
+
+void handle_return_value(ssize_t byte_executed, size_t byte_to_execute, size_t total_byte_to_execute) {
+	if (byte_executed == -1) {
+		print_invalid_response();
+		exit(1);
+	}
+	if (byte_executed < byte_to_execute) {
+		print_connection_closed();
+		if (total_byte_to_execute > 0) {
+			print_too_little_data();
+		}
+		exit(1);
+	}
+	return;
+}
+
 ssize_t client_read_all_from_socket(int socket, char * buffer, size_t count) {
 	ssize_t total_byte_read = 0;
 	ssize_t current_byte_read = 0;
