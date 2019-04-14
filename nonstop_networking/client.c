@@ -296,7 +296,7 @@ int main(int argc, char **argv) {
 
 	//Request sent, shutdown the write end of the socket
 	if (shutdown(socket_fd, SHUT_WR) != 0) {
-		print_error_message("client failed to shutdown socket!");
+		perror("client failed to shutdown socket!");
 	}
 
 	//Listen to server's response
