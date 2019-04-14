@@ -77,7 +77,6 @@ void client_receive_response_main(int socket_fd, verb request_verb, char** args)
 			total_byte_to_read -= current_byte_read;
 			printf("%s", line);
 		}
-		printf("\n");
 		if (client_read_all_from_socket(socket_fd, line, MAX_R_W_SIZE) != 0) {
 			print_received_too_much_data();
 		}
