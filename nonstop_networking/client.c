@@ -61,7 +61,11 @@ void client_receive_response_main(int socket_fd, verb request_verb, char** args)
 		while (total_byte_read < response_size) {
 			current_byte_to_read = (total_byte_to_read < MAX_R_W_SIZE) ? total_byte_to_read : MAX_R_W_SIZE;
 			current_byte_read = client_read_all_from_socket(socket_fd, lien, current_byte_to_read);
-
+			if (current_byte_read == -1) {
+				print_invalid_response();
+				exit(1);
+			} else if (current_byte_read < current_byte_to_read) {
+				p
 		}
 
 }
