@@ -173,7 +173,7 @@ void client_send_request_header(int socket_fd, verb request_verb, char** args) {
 		sprintf(line, "%s %s\n", args[VERB_TYPE_INDEX], args[REMOTE_FILE_INDEX]);
 	}
 	ssize_t byte_written = client_write_all_to_socket(socket_fd, line, line_length);
-	if (byte_written > 0) {
+	if (byte_written == (ssize_t) line_length) {
 		return;
 	} else {
 		print_error_message("client failed to write to socket");
