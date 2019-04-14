@@ -199,10 +199,7 @@ void client_send_request_main(int socket_fd, verb request_verb, char** args) {
 		//Send file_size to server
 		ssize_t byte_written = 0;
 		byte_written = client_write_all_to_socket(socket_fd, (char*) &file_size, sizeof(size_t));
-		if (byte_written <= 0) {
-			perror("client failed to write to socket");
-			exit(1);
-		}
+		handle_return_value(byte_written, sizeof(size_t), sizeof(size_t));
 
 		//Proceed to send binary data to server
 		size_t total_byte_written = 0;
@@ -216,19 +213,9 @@ void client_send_request_main(int socket_fd, verb request_verb, char** args) {
 			current_byte_to_write = (total_byte_to_write < MAX_R_W_SIZE) ? total_byte_to_write : MAX_R_W_SIZE;
 			fread(line, 1, current_byte_to_write, local_file);
 			current_byte_written = client_write_all_to_socket(socket_fd, line, current_byte_to_write);
-			if (current_byte_written == -1) {
-				print_invalid_response();
-				exit(1);
-			} else if (current_byte_written < (ssize_t) current_byte_to_write) {
-				print_connection_closed();
-				if (total_byte_to_write > 0) {
-					print_too_little_data();
-				}
-				exit(1);
-			} else {
-				total_byte_written += current_byte_written;
-				total_byte_to_write -= current_byte_written;
-			}
+			handle_return_value(current_byte_written, current_byte_to_write, total_byte_to_write);
+			total_byte_written += current_byte_written;
+			total_byte_to_write -= current_byte_written;
 		}
 		fclose(local_file);
 		return;
