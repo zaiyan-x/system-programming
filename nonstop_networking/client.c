@@ -31,7 +31,7 @@ int client_connect_to_server(const char* host, const char* port);
 void client_send_request_header(int socket_fd, verb request_verb, char** args);
 void client_send_request_main(int socket_fd, verb request_verb, char** args);
 void client_send_request(int socket_fd, verb request_verb, char** args);
-void client_receive_response_error(int socket_fd);
+void client_receive_response_error(int socket_fd, char** args);
 void client_receive_response_main(int socket_fd, verb request_verb, char** args);
 void client_receive_response(int socket_fd, verb request_verb, char** args);
 void clean_up(int socket_fd, char** args);
@@ -52,6 +52,7 @@ void client_receive_response_main(int socket_fd, verb request_verb, char** args)
 
 	if (byte_read <= 0) { //something wrong with the response
 		print_invalid_response();
+		clean_up(socket_fd, args);
 		exit(1);
 	}
 
@@ -65,7 +66,7 @@ void client_receive_response_main(int socket_fd, verb request_verb, char** args)
 
 	if (request_verb == LIST) {
 		while (total_byte_read < response_size) {
-			memset(line, 0, MAX_R_W_SIZE);
+			memset(line, 0, MAX_R_W_SIZE + 1);
 			current_byte_to_read = (total_byte_to_read < MAX_R_W_SIZE) ? total_byte_to_read : MAX_R_W_SIZE;
 			current_byte_read = client_read_all_from_socket(socket_fd, line, current_byte_to_read);
 			if (handle_return_value(current_byte_read, current_byte_to_read, total_byte_to_read) == 1) {
@@ -85,11 +86,12 @@ void client_receive_response_main(int socket_fd, verb request_verb, char** args)
 		
 		if (local_file == NULL) {
 			perror("client failed to open local file!");
+			clean_up(socket_fd, args);
 			exit(1);
 		}
 
 		while (total_byte_read < response_size) {
-			memset(line, 0, MAX_R_W_SIZE);
+			memset(line, 0, MAX_R_W_SIZE + 1);
 			current_byte_to_read = (total_byte_to_read < MAX_R_W_SIZE) ? total_byte_to_read : MAX_R_W_SIZE;
 			current_byte_read = client_read_all_from_socket(socket_fd, line, current_byte_to_read);
 			if (handle_return_value(current_byte_read, current_byte_to_read, total_byte_to_read) == 1) {
@@ -105,10 +107,9 @@ void client_receive_response_main(int socket_fd, verb request_verb, char** args)
 		}
 		fclose(local_file);
 	}
-
 }
 
-void client_receive_response_error(int socket_fd) {
+void client_receive_response_error(int socket_fd, char** args) {
 	//Set up utilities
 	char line[MAX_HEADER_SIZE];
 	memset(line, 0, MAX_HEADER_SIZE);
@@ -117,6 +118,7 @@ void client_receive_response_error(int socket_fd) {
 	ssize_t byte_read = client_read_line_from_socket(socket_fd, line, MAX_HEADER_SIZE);
 	if (byte_read <= 0) { //something is wrong with the response header
 		print_invalid_response();
+		cleanup(socket_fd, args);
 		exit(1);
 	}
 	print_error_message(line);
@@ -131,15 +133,17 @@ void client_receive_response(int socket_fd, verb request_verb, char** args) {
 	ssize_t byte_read = client_read_line_from_socket(socket_fd, line, MAX_HEADER_SIZE);
 	if (byte_read <= 0) { //something is wrong with the response header
 		print_invalid_response();
+		clean_up(socket_fd, args);
 		exit(1);
 	}
 
 	if (strcmp(line, "OK") == 0) { //OK
 		client_receive_response_main(socket_fd, request_verb, args);
 	} else if (strcmp(line, "ERROR") == 0) { //ERROR
-		client_receive_response_error(socket_fd);
+		client_receive_response_error(socket_fd, args);
 	} else { //wrong response
 		print_invalid_response();
+		clean_up(socket_fd, args);
 		exit(1);
 	}
 }
@@ -165,7 +169,8 @@ void client_send_request_header(int socket_fd, verb request_verb, char** args) {
 		sprintf(line, "%s %s\n", args[VERB_TYPE_INDEX], args[REMOTE_FILE_INDEX]);
 	}
 	ssize_t byte_written = client_write_all_to_socket(socket_fd, line, line_length);
-	if (handle_return_value(byte_written, line_length, line_length) == 1) {
+	if (byte_written < (ssize_t) line_length) {
+		print_invalid_response();
 		clean_up(socket_fd, args);
 		exit(1);
 	}
@@ -203,6 +208,7 @@ void client_send_request_main(int socket_fd, verb request_verb, char** args) {
 		memset(line, 0, MAX_R_W_SIZE);
 
 		while (total_byte_written < file_size) {
+			memset(line, 0, MAX_R_W_SIZE);
 			current_byte_to_write = (total_byte_to_write < MAX_R_W_SIZE) ? total_byte_to_write : MAX_R_W_SIZE;
 			fread(line, 1, current_byte_to_write, local_file);
 			current_byte_written = client_write_all_to_socket(socket_fd, line, current_byte_to_write);
@@ -284,8 +290,7 @@ int main(int argc, char **argv) {
 	client_receive_response(socket_fd, request_verb, args);
 
 	//Clean up
-	close(socket_fd);
-	free(args);
+	clean_up(socket_fd, args);
 	return 0;
 }
 
