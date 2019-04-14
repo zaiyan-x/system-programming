@@ -243,7 +243,7 @@ int client_connect_to_server(const char * host, const char * port) {
 	int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (socket_fd == -1) { //failed to create socket
 		perror("failed to create client socket!");
-		exit(1);
+		return -1;
 	}
 	
 	//Acquire addrinfo of the host and port
@@ -254,11 +254,13 @@ int client_connect_to_server(const char * host, const char * port) {
 	hints.ai_socktype = SOCK_STREAM;
 	if (getaddrinfo(host, port, &hints, &result)) {
 		perror("getaddrinfo() failed!");
-		exit(1);
+		freeaddrinfo(result);
+		return -1;
 	}
 	if (connect(socket_fd, result->ai_addr, result->ai_addrlen) == -1) {
 		perror("connect() failed!");
-		exit(1);
+		freeaddrinfo(result);
+		return -1;
 	}
 
 	//Clean up
@@ -277,6 +279,10 @@ int main(int argc, char **argv) {
 
 	//Get socket
 	int socket_fd = client_connect_to_server(args[HOST_INDEX], args[PORT_INDEX]);
+	if (socket_fd == -1) {
+		free(args);
+		exit(1);
+	}
 	
 	//Ready to send command to server
 	client_send_request(socket_fd, request_verb, args);
