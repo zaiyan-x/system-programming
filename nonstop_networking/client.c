@@ -40,8 +40,13 @@ void client_receive_response(int socket_fd, verb request_verb, char** args) {
 
 }
 
+void client_send_request(int socket_fd, verb request_verb, char** args) {
+	client_send_request_header(socket_fd, request_verb, args);
+	client_send_request_main(socket_fd, request_verb, args);
+	return;
+}
 
-void client_send_request_first_line(int socket_fd, verb request_verb, char** args) {
+void client_send_request_header(int socket_fd, verb request_verb, char** args) {
 	//Construct request first
 	size_t line_length = 0;
 	char line[MAX_HEADER_SIZE];
@@ -64,7 +69,7 @@ void client_send_request_first_line(int socket_fd, verb request_verb, char** arg
 	}
 }
 
-void client_send_request_second_line(int socket_fd, verb request_verb, char** args) {
+void client_send_request_main(int socket_fd, verb request_verb, char** args) {
 	//Construct request second
 	if (request_verb == PUT) {
 		//Try to open file
