@@ -20,7 +20,7 @@ void handle_return_value(ssize_t byte_executed, size_t byte_to_execute, size_t t
 	}
 	if (byte_executed < byte_to_execute) {
 		print_connection_closed();
-		if (total_byte_to_execute > 0) {
+		if (total_byte_to_execute - byte_executed > 0) {
 			print_too_little_data();
 		}
 		exit(1);
