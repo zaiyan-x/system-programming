@@ -34,6 +34,12 @@ void client_send_request(int socket_fd, verb request_verb, char** args);
 void client_receive_response_error(int socket_fd);
 void client_receive_response_main(int socket_fd, verb request_verb, char** args);
 void client_receive_response(int socket_fd, verb request_verb, char** args);
+void clean_up(int socket_fd, char** args);
+
+void clean_up(int socket_fd, char** args) {
+	close(socket_fd);
+	free(args);
+}
 
 void client_receive_response_main(int socket_fd, verb request_verb, char** args) {
 	if (request_verb == DELETE || request_verb == PUT) {
@@ -62,7 +68,10 @@ void client_receive_response_main(int socket_fd, verb request_verb, char** args)
 			memset(line, 0, MAX_R_W_SIZE);
 			current_byte_to_read = (total_byte_to_read < MAX_R_W_SIZE) ? total_byte_to_read : MAX_R_W_SIZE;
 			current_byte_read = client_read_all_from_socket(socket_fd, line, current_byte_to_read);
-			handle_return_value(current_byte_read, current_byte_to_read, total_byte_to_read);
+			if (handle_return_value(current_byte_read, current_byte_to_read, total_byte_to_read) == 1) {
+				clean_up(socket_fd, args);
+				exit(1);
+			}
 			total_byte_read += current_byte_read;
 			total_byte_to_read -= current_byte_read;
 			printf("%s", line);
@@ -83,7 +92,10 @@ void client_receive_response_main(int socket_fd, verb request_verb, char** args)
 			memset(line, 0, MAX_R_W_SIZE);
 			current_byte_to_read = (total_byte_to_read < MAX_R_W_SIZE) ? total_byte_to_read : MAX_R_W_SIZE;
 			current_byte_read = client_read_all_from_socket(socket_fd, line, current_byte_to_read);
-			handle_return_value(current_byte_read, current_byte_to_read, total_byte_to_read);
+			if (handle_return_value(current_byte_read, current_byte_to_read, total_byte_to_read) == 1) {
+				clean_up(socket_fd, args);
+				exit(1);
+			}
 			total_byte_read += current_byte_read;
 			total_byte_to_read -= current_byte_read;
 			fwrite(line, 1, current_byte_read, local_file);
@@ -153,7 +165,10 @@ void client_send_request_header(int socket_fd, verb request_verb, char** args) {
 		sprintf(line, "%s %s\n", args[VERB_TYPE_INDEX], args[REMOTE_FILE_INDEX]);
 	}
 	ssize_t byte_written = client_write_all_to_socket(socket_fd, line, line_length);
-	handle_return_value(byte_written, line_length, line_length);
+	if (handle_return_value(byte_written, line_length, line_length) == 1) {
+		clean_up(socket_fd, args);
+		exit(1);
+	}
 }
 
 void client_send_request_main(int socket_fd, verb request_verb, char** args) {
@@ -174,7 +189,10 @@ void client_send_request_main(int socket_fd, verb request_verb, char** args) {
 		//Send file_size to server
 		ssize_t byte_written = 0;
 		byte_written = client_write_all_to_socket(socket_fd, (char*) &file_size, sizeof(size_t));
-		handle_return_value(byte_written, sizeof(size_t), sizeof(size_t));
+		if (handle_return_value(byte_written, sizeof(size_t), sizeof(size_t)) == 1) {
+			clean_up(socket_fd, args);
+			exit(1);
+		}
 
 		//Proceed to send binary data to server
 		size_t total_byte_written = 0;
@@ -188,7 +206,10 @@ void client_send_request_main(int socket_fd, verb request_verb, char** args) {
 			current_byte_to_write = (total_byte_to_write < MAX_R_W_SIZE) ? total_byte_to_write : MAX_R_W_SIZE;
 			fread(line, 1, current_byte_to_write, local_file);
 			current_byte_written = client_write_all_to_socket(socket_fd, line, current_byte_to_write);
-			handle_return_value(current_byte_written, current_byte_to_write, total_byte_to_write);
+			if (handle_return_value(current_byte_written, current_byte_to_write, total_byte_to_write) == 1) {
+				clean_up(socket_fd, args);
+				exit(1);
+			}
 			total_byte_written += current_byte_written;
 			total_byte_to_write -= current_byte_written;
 		}
