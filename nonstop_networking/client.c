@@ -28,10 +28,18 @@
 char **parse_args(int argc, char **argv);
 verb check_args(char **args);
 int client_connect_to_server(const char* host, const char* port);
+void client_send_request_header(int socket_fd, verb request_verb, char** args);
+void client_send_request_main(int socket_fd, verb request_verb, char** args);
 void client_send_request(int socket_fd, verb request_verb, char** args);
-void client_send_request_first_line(int socket_fd, verb request_verb, char** args);
-void client_send_request_second_line(int socket_fd, verb request_verb, char** args);
+void client_receive_response_header(int socket_fd, verb request_verb, char** args);
+void client_receive_response_main(int socket_fd, verb request_verb, char** args);
 void client_receive_response(int socket_fd, verb request_verb, char** args);
+
+
+void client_receive_response(int socket_fd, verb request_verb, char** args) {
+
+}
+
 
 void client_send_request_first_line(int socket_fd, verb request_verb, char** args) {
 	//Construct request first
@@ -114,12 +122,6 @@ void client_send_request_second_line(int socket_fd, verb request_verb, char** ar
 	}
 }
 
-void client_send_request(int socket_fd, verb request_verb, char** args) {
-	client_send_request_first_line(socket_fd, request_verb, args);
-	client_send_request_second_line(socket_fd, request_verb, args);
-	return;
-}
-
 
 
 /*
@@ -173,7 +175,8 @@ int main(int argc, char **argv) {
 	int socket_fd = client_connect_to_server(args[HOST_INDEX], args[PORT_INDEX]);
 	
 	//Ready to send command to server
-	client_send_request(socket_fd, request_verb, args);
+	client_send_request_first_line(socket_fd, request_verb, args);
+	client_send_request_second_line(socket_fd, request_verb, args);
 
 	//Request sent, shutdown the write end of the socket
 	if (shutdown(socket_fd, SHUT_WR) != 0) {
