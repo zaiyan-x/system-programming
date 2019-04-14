@@ -15,6 +15,8 @@
 typedef enum { GET, PUT, DELETE, LIST, V_UNKNOWN } verb;
 
 ssize_t client_write_all_to_socket(int socket, const char * buffer, size_t count); 
+ssize_t client_read_line_from_socket(int socket, char * buffer, size_t count);
+ssize_t client_read_all_from_socket(int socket, char * buffer, size_t count);
 
 //Helper functions
 char** parse_args(int argc, char** argv);

@@ -31,13 +31,75 @@ int client_connect_to_server(const char* host, const char* port);
 void client_send_request_header(int socket_fd, verb request_verb, char** args);
 void client_send_request_main(int socket_fd, verb request_verb, char** args);
 void client_send_request(int socket_fd, verb request_verb, char** args);
-void client_receive_response_header(int socket_fd, verb request_verb, char** args);
+void client_receive_response_error(int socket_fd);
 void client_receive_response_main(int socket_fd, verb request_verb, char** args);
 void client_receive_response(int socket_fd, verb request_verb, char** args);
 
+void client_receive_response_main(int socket_fd, verb request_verb, char** args) {
+	if (request_verb == DELETE || request_verb == PUT) {
+		print_success();
+		return;
+	}
+	// First, get package size
+	size_t response_size = 0;
+	ssize_t byte_read = client_read_all_from_socket(socket_fd, (char*) &response_size, sizeof(size_t));
+
+	if (byte_read <= 0) { //something wrong with the response
+		print_invalid_response();
+		exit(1);
+	}
+
+	//Prepare utilities
+	size_t total_byte_read = 0;
+	size_t total_byte_to_read = response_size;
+	size_t current_byte_to_read = 0;
+	size_t current_byte_read = 0;
+	char line[MAX_R_W_SIZE];
+	memset(line, 0, MAX_R_W_SIZE);
+
+	if (request_verb == LIST) {
+		while (total_byte_read < response_size) {
+			current_byte_to_read = (total_byte_to_read < MAX_R_W_SIZE) ? total_byte_to_read : MAX_R_W_SIZE;
+			current_byte_read = client_read_all_from_socket(socket_fd, lien, current_byte_to_read);
+
+		}
+
+}
+
+void client_receive_response_error(int socket_fd) {
+	//Set up utilities
+	char line[MAX_HEADER_SIZE];
+	memset(line, 0, MAX_HEADER_SIZE);
+
+	//Proceed to read error message
+	ssize_t byte_read = client_read_line_from_socket(socket_fd, line, MAX_HEADER_SIZE);
+	if (byte_read <= 0) { //something is wrong with the response header
+		print_invalid_response();
+		exit(1);
+	}
+	print_error_message(line);
+}
 
 void client_receive_response(int socket_fd, verb request_verb, char** args) {
+	//Set up utilities
+	char line[MAX_HEADER_SIZE];
+	memset(line, 0, MAX_HEADER_SIZE);
 
+	//Read server response
+	ssize_t byte_read = client_read_line_from_socket(socket_fd, line, MAX_HEADER_SIZE);
+	if (byte_read == -1) { //something is wrong with the response header
+		print_invalid_response();
+		exit(1);
+	}
+
+	if (strcmp(line, "OK") == 0) { //OK
+		client_receive_response_main(socket_fd, request_verb, args);
+	} else if (strcmp(line, "ERROR") == 0) { //ERROR
+		client_receive_response_error(socket_fd);
+	} else { //wrong response
+		print_invalid_response();
+		exit(1);
+	}
 }
 
 void client_send_request(int socket_fd, verb request_verb, char** args) {
@@ -90,7 +152,7 @@ void client_send_request_main(int socket_fd, verb request_verb, char** args) {
 		if (byte_written > 0) {
 			return;
 		} else {
-			print_error_message("client failed to write to socket");
+			perror("client failed to write to socket");
 			exit(1);
 		}
 
@@ -109,7 +171,7 @@ void client_send_request_main(int socket_fd, verb request_verb, char** args) {
 			if (current_byte_written == -1) {
 				print_invalid_response();
 				exit(1);
-			} else if (current_byte_written == 0) {
+			} else if (current_byte_written < current_byte_to_write) {
 				print_connection_closed();
 				if (total_byte_to_write > 0) {
 					print_too_little_data();
@@ -143,7 +205,7 @@ int client_connect_to_server(const char * host, const char * port) {
 	//Establish client socket first
 	int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (socket_fd == -1) { //failed to create socket
-		print_error_message("failed to create client socket!");
+		perror("failed to create client socket!");
 		exit(1);
 	}
 	
@@ -154,11 +216,11 @@ int client_connect_to_server(const char * host, const char * port) {
 	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_STREAM;
 	if (getaddrinfo(host, port, &hints, &result)) {
-		print_error_message("getaddrinfo() failed!");
+		perror("getaddrinfo() failed!");
 		exit(1);
 	}
 	if (connect(socket_fd, result->ai_addr, result->ai_addrlen) == -1) {
-		print_error_message("connect() failed!");
+		perror("connect() failed!");
 		exit(1);
 	}
 
@@ -180,8 +242,7 @@ int main(int argc, char **argv) {
 	int socket_fd = client_connect_to_server(args[HOST_INDEX], args[PORT_INDEX]);
 	
 	//Ready to send command to server
-	client_send_request_first_line(socket_fd, request_verb, args);
-	client_send_request_second_line(socket_fd, request_verb, args);
+	client_send_request(socket_fd, request_verb, args);
 
 	//Request sent, shutdown the write end of the socket
 	if (shutdown(socket_fd, SHUT_WR) != 0) {
