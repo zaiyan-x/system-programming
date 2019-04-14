@@ -156,21 +156,17 @@ void client_send_request(int socket_fd, verb request_verb, char** args) {
 
 void client_send_request_header(int socket_fd, verb request_verb, char** args) {
 	//Construct request first
-	size_t line_length = 0;
 	char line[MAX_HEADER_SIZE];
 	memset(line, 0, MAX_HEADER_SIZE);
 	if (request_verb == LIST) {
-		//1 for \n | 1 for null byte
-		line_length = strlen(args[VERB_TYPE_INDEX]) + 2;
 		sprintf(line, "%s\n", args[VERB_TYPE_INDEX]);
 	} else {
-		//1 for space | 1 for \n | 1 for null byte
-		line_length = strlen(args[VERB_TYPE_INDEX]) + strlen(args[REMOTE_FILE_INDEX]) + 3;
 		sprintf(line, "%s %s\n", args[VERB_TYPE_INDEX], args[REMOTE_FILE_INDEX]);
 	}
+	size_t line_length = strlen(line);
 	ssize_t byte_written = client_write_all_to_socket(socket_fd, line, line_length);
-	if (byte_written < (ssize_t) line_length) {
-		print_invalid_response();
+	if (byte_written <= 0) {
+		print_connection_closed();
 		clean_up(socket_fd, args);
 		exit(1);
 	}
