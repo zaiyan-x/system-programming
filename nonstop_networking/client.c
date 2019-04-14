@@ -199,9 +199,7 @@ void client_send_request_main(int socket_fd, verb request_verb, char** args) {
 		//Send file_size to server
 		ssize_t byte_written = 0;
 		byte_written = client_write_all_to_socket(socket_fd, (char*) &file_size, sizeof(size_t));
-		if (byte_written > 0) {
-			return;
-		} else {
+		if (byte_written <= 0) {
 			perror("client failed to write to socket");
 			exit(1);
 		}
