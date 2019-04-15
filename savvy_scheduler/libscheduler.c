@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "print_functions.h"
 typedef struct _job_info {
@@ -78,13 +79,13 @@ static int break_tie(const void *a, const void *b) {
 }
 
 int comparer_fcfs(const void *a, const void *b) {
-    	job* job_a = (job*) a;
+    job* job_a = (job*) a;
 	job* job_b = (job*) b;
 	job_info* info_a = (job_info*) job_a->metadata;
 	job_info* info_b = (job_info*) job_b->metadata;
 	if (info_a->arrival_time < info_b->arrival_time) {
 		return -1;
-	} else if (info_a->arrival_time > info_b->metadata->arrival_time) {
+	} else if (info_a->arrival_time > info_b->arrival_time) {
 		return 1;
 	} else {
 		return 0;
@@ -179,15 +180,15 @@ void scheduler_new_job(job *newjob, int job_number, double time,
 	total_job++;
 
 	//Acquire suitable job
-	job* priority_job = (job*) priqueue_peek(&pqueue);
+	job* priority_job;
 	job_info* priority_info = NULL;
 	//Check CPU
 	if (current_job == NULL) { //No job is running
 		priority_job = (job*) priqueue_poll(&pqueue);
-		priority_info = (job_info*) priority_job->metadata;
 		if (priority_job == NULL) {
 			return;
 		}
+		priority_info = (job_info*) priority_job->metadata;
 
 		if (priority_info->start_time == -1) {
 			priority_info->start_time = time;
@@ -207,11 +208,11 @@ void scheduler_new_job(job *newjob, int job_number, double time,
 
 		//Flush
 		priority_job = (job*) priqueue_poll(&pqueue);
-		priority_info = (job_info*) priority_job->metadata;
 		if (priority_job == NULL) {
 			return;
 		}
 
+		priority_info = (job_info*) priority_job->metadata;
 		if (priority_info->start_time == -1) {
 			priority_info->start_time = time;
 		}
@@ -224,6 +225,10 @@ job *scheduler_quantum_expired(job *job_evicted, double time) {
 	//Check if rotation is needed
 	if (pqueue_scheme == FCFS || pqueue_scheme == PRI || pqueue_scheme == SJF || pqueue_scheme == RR) {
 		return job_evicted;
+	}
+
+	if (job_evicted == NULL) {
+		return current_job;
 	}
 	//Update current job remaining time
 	((job_info*)(job_evicted->metadata))->remaining_time -= time - current_job_start_time;
@@ -241,7 +246,7 @@ job *scheduler_quantum_expired(job *job_evicted, double time) {
 	if (priority_job == NULL) {
 		return NULL;
 	}
-
+	
 	if (priority_info->start_time == -1) {
 		priority_info->start_time = time;
 	}
