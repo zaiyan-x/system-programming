@@ -1,6 +1,7 @@
 /**
  * Savvy Scheduler
  * CS 241 - Spring 2019
+ * Collab with Eric Wang - wcwang2
  */
 #include "libpriqueue/libpriqueue.h"
 #include "libscheduler.h"
