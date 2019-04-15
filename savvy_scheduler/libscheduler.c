@@ -78,7 +78,7 @@ static int break_tie(const void *a, const void *b) {
 }
 
 int comparer_fcfs(const void *a, const void *b) {
-    job* job_a = (job*) a;
+    	job* job_a = (job*) a;
 	job* job_b = (job*) b;
 	job_info* info_a = (job_info*) job_a->metadata;
 	job_info* info_b = (job_info*) job_b->metadata;
@@ -99,9 +99,11 @@ int comparer_ppri(const void *a, const void *b) {
 int comparer_pri(const void *a, const void *b) {
 	job* job_a = (job*) a;
 	job* job_b = (job*) b;
-	if (job_a->metadata->priority < job_b->metadata->priority) {
+	job_info* info_a = (job_info*) job_a->metadata;
+	job_info* info_b = (job_info*) job_b->metadata;
+	if (info_a->priority < info_b->priority) {
 		return -1;
-	} else if (job_a->metadata->priority > job_b->metadata->priority) {
+	} else if (info_a->priority > info_b->priority) {
 		return 1;
 	} else {
 		return break_tie(a,b);
@@ -110,11 +112,13 @@ int comparer_pri(const void *a, const void *b) {
 
 //Compare remaining time
 int comparer_psrtf(const void *a, const void *b) {
-    job* job_a = (job*) a;
+	job* job_a = (job*) a;
 	job* job_b = (job*) b;
-	if (job_a->metadata->remaining_time < job_b->metadata->remaining_time) {
+	job_info* info_a = (job_info*) job_a->metadata;
+	job_info* info_b = (job_info*) job_b->metadata;
+	if (info_a->remaining_time < info_b->remaining_time) {
 		return -1;
-	} else if (job_a->metadata->remaining_time > job_b->metadata->remaining_time) {
+	} else if (info_a->remaining_time > info_b->remaining_time) {
 		return 1;
 	} else {
 		return break_tie(a, b);
@@ -122,11 +126,13 @@ int comparer_psrtf(const void *a, const void *b) {
 }
 
 int comparer_rr(const void *a, const void *b) {
-    job* job_a = (job*) a;
+	job* job_a = (job*) a;
 	job* job_b = (job*) b;
-	if (job_a->metadata->rr_queue_time < job_b->metadata->rr_queue_time) {
+	job_info* info_a = (job_info*) job_a->metadata;
+	job_info* info_b = (job_info*) job_b->metadata;
+	if (info_a->rr_queue_time < info_b->rr_queue_time) {
 		return -1;
-	} else if (job_a->metadata->rr_queue_time > job_b->metadata->rr_queue_time) {
+	} else if (info_a->rr_queue_time > info_b->rr_queue_time) {
 		return 1;
 	} else {
 		return break_tie(a, b);
@@ -136,9 +142,11 @@ int comparer_rr(const void *a, const void *b) {
 int comparer_sjf(const void *a, const void *b) {
 	job* job_a = (job*) a;
 	job* job_b = (job*) b;
-	if (job_a->metadata->run_time < job_b->metadata->run_time) {
+	job_info* info_a = (job_info*) job_a->metadata;
+	job_info* info_b = (job_info*) job_b->metadata;
+	if (info_a->run_time < info_b->run_time) {
 		return -1;
-	} else if (job_a->metadata->run_time > job_b->metadata->run_time) {
+	} else if (info_a->run_time > info_b->run_time) {
 		return 1;
 	} else {
 		return break_tie(a, b);
@@ -172,17 +180,17 @@ void scheduler_new_job(job *newjob, int job_number, double time,
 
 	//Acquire suitable job
 	job* priority_job = (job*) priqueue_peek(&pqueue);
-
+	job_info* priority_info = NULL;
 	//Check CPU
 	if (current_job == NULL) { //No job is running
 		priority_job = (job*) priqueue_poll(&pqueue);
-
+		priority_info = (job_info*) priority_job->metadata;
 		if (priority_job == NULL) {
 			return;
 		}
 
-		if (priority_job->metadata->start_time == -1) {
-			priority_job->metadata->start_time = time;
+		if (priority_info->start_time == -1) {
+			priority_info->start_time = time;
 		}
 		current_job = priority_job;
 		current_job_start_time = time;	
@@ -191,7 +199,7 @@ void scheduler_new_job(job *newjob, int job_number, double time,
 
 	if (pqueue_scheme == PPRI || pqueue_scheme == PSRTF) {
 		//Update current job remaining_time
-		current_job->metadata->remaining_time -= time - current_job_start_time;
+		((job_info*)(current_job->metadata))->remaining_time -= time - current_job_start_time;
 
 		//Push current job back to the queue
 		priqueue_offer(&pqueue, current_job);
@@ -199,13 +207,13 @@ void scheduler_new_job(job *newjob, int job_number, double time,
 
 		//Flush
 		priority_job = (job*) priqueue_poll(&pqueue);
-		
+		priority_info = (job_info*) priority_job->metadata;
 		if (priority_job == NULL) {
 			return;
 		}
 
-		if (priority_job->metadata->start_time == -1) {
-			priority_job->metadata->start_time = time;
+		if (priority_info->start_time == -1) {
+			priority_info->start_time = time;
 		}
 		current_job = priority_job;
 		current_job_start_time = time;
@@ -221,7 +229,7 @@ job *scheduler_quantum_expired(job *job_evicted, double time) {
 	((job_info*)(job_evicted->metadata))->remaining_time -= time - current_job_start_time;
 
 	//Update current job rr_queue_time
-	job_evicted->metadata->rr_queue_time = time;
+	((job_info*)(job_evicted->metadata))->rr_queue_time = time;
 
 	//Push current job back to the queue
 	priqueue_offer(&pqueue, job_evicted);
@@ -229,13 +237,13 @@ job *scheduler_quantum_expired(job *job_evicted, double time) {
 
 	//Flush
 	job * priority_job = (job*) priqueue_poll(&pqueue);
-
+	job_info* priority_info = (job_info*) priority_job->metadata;
 	if (priority_job == NULL) {
 		return NULL;
 	}
 
-	if (priority_job->metadata->start_time == -1) {
-		priority_job->metadata->start_time = time;
+	if (priority_info->start_time == -1) {
+		priority_info->start_time = time;
 	}
 	current_job = priority_job;
 	current_job_start_time = time;
