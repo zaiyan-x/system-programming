@@ -23,12 +23,12 @@ typedef struct _job_info {
 	int arrival_time;
 	int remaining_time;
 	int rr_queue_time;
-
+	int current_start_time;
 } job_info;
 
-static job* current_job;
-static int current_job_start_time;
-static size_t total_job;
+//static job* current_job;
+//static int current_job_start_time;
+static int total_job;
 priqueue_t pqueue;
 scheme_t pqueue_scheme;
 comparer_t comparision_func;
@@ -65,8 +65,6 @@ void scheduler_start_up(scheme_t s) {
     priqueue_init(&pqueue, comparision_func);
     pqueue_scheme = s;
     // Put any set up code you may need here
-	current_job = NULL;
-	current_job_start_time = 0;
 	total_job = 0;
 
 	wait_time = 0;
@@ -164,11 +162,12 @@ void scheduler_new_job(job *newjob, int job_number, double time,
 	new_job_info->id = job_number;
 	new_job_info->priority = sched_data->priority;
 	new_job_info->run_time = sched_data->running_time;
-	new_job_info->remaining_time = new_job_info->run_time;
-	new_job_info->rr_queue_time = time;
+	new_job_info->remaining_time = sched_data->running_time;
+	new_job_info->rr_queue_time = -1;
 	new_job_info->arrival_time = time;
 	new_job_info->end_time = -1;
 	new_job_info->start_time = -1;
+	new_job_info->current_start_time = -1;
 
 	//Store info into job
 	newjob->metadata = (void*) new_job_info;
@@ -178,84 +177,48 @@ void scheduler_new_job(job *newjob, int job_number, double time,
 	
 	//Do record
 	total_job++;
-
-	//Acquire suitable job
-	job* priority_job;
-	job_info* priority_info = NULL;
-	//Check CPU
-	if (current_job == NULL) { //No job is running
-		priority_job = (job*) priqueue_poll(&pqueue);
-		if (priority_job == NULL) {
-			return;
-		}
-		priority_info = (job_info*) priority_job->metadata;
-
-		if (priority_info->start_time == -1) {
-			priority_info->start_time = time;
-		}
-		current_job = priority_job;
-		current_job_start_time = time;	
-		return;
-	}
-
-	if (pqueue_scheme == PPRI || pqueue_scheme == PSRTF) {
-		//Update current job remaining_time
-		((job_info*)(current_job->metadata))->remaining_time -= time - current_job_start_time;
-
-		//Push current job back to the queue
-		priqueue_offer(&pqueue, current_job);
-		current_job = NULL;
-
-		//Flush
-		priority_job = (job*) priqueue_poll(&pqueue);
-		if (priority_job == NULL) {
-			return;
-		}
-
-		priority_info = (job_info*) priority_job->metadata;
-		if (priority_info->start_time == -1) {
-			priority_info->start_time = time;
-		}
-		current_job = priority_job;
-		current_job_start_time = time;
-	}
 }
 
 job *scheduler_quantum_expired(job *job_evicted, double time) {
 	//Check if rotation is needed
-	if (pqueue_scheme == FCFS || pqueue_scheme == PRI || pqueue_scheme == SJF || pqueue_scheme == RR) {
-		return job_evicted;
+	if (pqueue_scheme == FCFS || pqueue_scheme == PRI || pqueue_scheme == SJF) {
+		if (job_evicted != NULL) {
+			return job_evicted;
+		}
 	}
 
-	if (job_evicted == NULL) {
-		return current_job;
+	if (job_evicted != NULL) {
+		job_info* job_evicted_info = (job_info*) job_evicted->metadata;
+
+		//Update current job remaining time
+		job_evicted_info->remaining_time -= (time - job_evicted_info->current_start_time);
+
+		//Update current job rr_queue_time
+		job_evicted_info->rr_queue_time = time;
+		
+		//Push current job back to the queue
+		priqueue_offer(&pqueue, job_evicted);
 	}
-	//Update current job remaining time
-	((job_info*)(job_evicted->metadata))->remaining_time -= time - current_job_start_time;
-
-	//Update current job rr_queue_time
-	((job_info*)(job_evicted->metadata))->rr_queue_time = time;
-
-	//Push current job back to the queue
-	priqueue_offer(&pqueue, job_evicted);
-	current_job = NULL;
 
 	//Flush
 	job * priority_job = (job*) priqueue_poll(&pqueue);
-	job_info* priority_info = (job_info*) priority_job->metadata;
 	if (priority_job == NULL) {
 		return NULL;
 	}
+	job_info* priority_info = (job_info*) priority_job->metadata;
 	
 	if (priority_info->start_time == -1) {
 		priority_info->start_time = time;
 	}
-	current_job = priority_job;
-	current_job_start_time = time;
+	priority_info->current_start_time = time;
 	return priority_job;
 }
 
 void scheduler_job_finished(job *job_done, double time) {
+	if (job_done == NULL) {
+		return;
+	}
+	
 	job_info* info = (job_info*) job_done->metadata;
 	info->end_time = time;
 	turnaround_time += info->end_time - info->arrival_time;
@@ -264,17 +227,6 @@ void scheduler_job_finished(job *job_done, double time) {
 
 	//free malloc
 	free(info);
-
-	//Poll from queue
-	job* priority_job = (job*) priqueue_poll(&pqueue);
-	if (priority_job) {
-		job_info* priority_info = (job_info*) priority_job->metadata;
-		if (priority_info->start_time == -1) {
-			priority_info->start_time = time;
-		}
-		current_job = priority_job;
-		current_job_start_time = time;
-	}
 }
 
 static void print_stats() {
@@ -284,16 +236,15 @@ static void print_stats() {
 }
 
 double scheduler_average_waiting_time() {
-	return wait_time / total_job;
+	return 1.0 * wait_time / total_job;
 }
 
 double scheduler_average_turnaround_time() {
-    return turnaround_time / total_job;
+    return 1.0 * turnaround_time / total_job;
 }
 
 double scheduler_average_response_time() {
-    // TODO complete me!
-    return response_time / total_job;
+    return 1.0 * response_time / total_job;
 }
 
 void scheduler_show_queue() {
