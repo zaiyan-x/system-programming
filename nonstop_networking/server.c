@@ -23,7 +23,15 @@
 #define MAX_R_W_SIZE 1024
 
 /* Client State Macros */
-#define FETCH_HEADER 0
+#define READ_HEADER 0
+#define READ_SIZE 1
+#define READ_CLIENT_PUT 2
+#define WRITE_CLIENT_LIST 3
+#define WRITE_REPLY_OK 4
+#define WRITE_REPLY_ERROR 5
+#define WRITE_REPLY_ERROR_MESSAGE 6
+#define WRITE_CLIENT_GET 7
+#define WRITE_REPLY_SIZE 8
 
 /* Global Server Variables */
 static char* SERVER_DIR;
@@ -43,6 +51,7 @@ typedef struct client_ {
 	verb client_verb;
 	char * filename;
 	int offset;
+	const char * error_message;
 } client;
 
 void shutdown_server() {
@@ -53,8 +62,8 @@ long client_ptr_to_long(client * ptr) {
 	return (long) ((void*) ptr);
 }
 
-client * long_to_client_ptr(long client) {
-	return (client *) ((void*) client);
+client * long_to_client_ptr(long * client) {
+	return (client *) *client;
 }
 
 void handle_client(int client_fd) {
@@ -63,8 +72,25 @@ void handle_client(int client_fd) {
 		exit(1);
 	}
 
-	client * current_client = long_to_client_ptr(dictionary_get(CLIENT_DIC, &client_fd));
-	
+	client* curr_client = long_to_client_ptr(dictionary_get(CLIENT_DIC, &client_fd));
+
+	if (curr_client->state == FETCH_HEADER) {
+		fetch_header(client_fd, curr_client);
+	} else if (curr_client->state == FETCH_SIZE) {
+		fetch_size(client_fd, curr_client);
+	} else if (curr_client->state == WRITE_OK) {
+		reply_ok(client_fd, curr_client);
+	} else if (curr_client->state == WRITE_ERROR) {
+		reply_error(client_fd, curr_client);
+	} else if (curr_client->state == WRITE_ERROR_MESSAGE) {
+		reply_error_message(client_fd, curr_client);
+	} else if (curr_client->state == PUT_FILE) {
+		put_file(client_fd, curr_client);
+	} else if (curr_client->state == LIST_FILE) {
+		list_file(client_fd, curr_client);
+	} else if (curr_client->state == WRITE_SIZE) {
+		reply_size(client_fd, curr_client);
+	} else if (curr_client->state == GET_FILE
 }
 
 
@@ -188,7 +214,7 @@ void server_listen_to_client() {
 				memset(new_client, 0, sizeof(client));
 				new_client->state = FETCH_HEADER;
 				new_client->buffer = 0;
-				new_client_ptr = client_struct_ptr_to_long(new_client);
+				new_client_ptr = client_ptr_to_long(new_client);
 				dictionary_set(CLIENT_DIC, &client_fd, &new_client_ptr);
 		} else {
 			handle_client(events[i].data.fd);
