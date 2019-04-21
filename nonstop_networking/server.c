@@ -41,6 +41,8 @@
 /* Status Macros */
 #define ACTION_PAUSED 1
 #define ACTION_COMPLETE 0
+#define CONNECTED 0
+#define CONNECTION_LOST 1
 /* Client Information Struct */
 typedef struct client_ {
 	int state;
@@ -198,7 +200,8 @@ void setup_put(int client_fd, client* current_client) {
 void write_reply_ok(int client_fd, client* current_client) {
 	char * buffer = current_client->reply + current_client->offset;
 	size_t count = strlen(buffer);
-	ssize_t total_byte_written = server_write_all_to_socket(client_fd, buffer, count);
+	int status = CONNECTED;
+	ssize_t total_byte_written = server_write_all_to_socket(client_fd, buffer, count, &status);
 	if (total_byte_written == -1) { //Something bad happened
 		shutdown_client(client_fd, current_client);
 		return;
@@ -216,18 +219,27 @@ void write_reply_ok(int client_fd, client* current_client) {
 			return;
 		}
 	}
+	if (status == CONNECTION_LOST) {
+		shutdown_client(client_fd, current_client);
+		return;
+	}
 	current_client->offset += total_byte_written;
 }
 
 void write_reply_error(int client_fd, client* current_client) {
 	char * buffer = current_client->reply + current_client->offset;
 	size_t count = strlen(buffer);
-	ssize_t total_byte_written = server_write_all_to_socket(client_fd, buffer, count);
+	int status = CONNECTED;
+	ssize_t total_byte_written = server_write_all_to_socket(client_fd, buffer, count, &status);
 	if (total_byte_written == -1 ) { //Something bad happened
 		shutdown_client(client_fd, current_client);
 		return;
 	}
 	if (total_byte_written == count) {
+		shutdown_client(client_fd, current_client);
+		return;
+	}
+	if (status == CONNECTION_LOST) {
 		shutdown_client(client_fd, current_client);
 		return;
 	}
