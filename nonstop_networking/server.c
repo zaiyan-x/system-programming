@@ -90,7 +90,7 @@ void log_error(int client_fd, client* current_client, const char* error_message)
 void log_ok(int client_fd, client* current_client);
 void reset_epoll_mode_to_write(int client_fd);
 FILE * open_file(char * filename, char * flag);
-
+void shutdown_client(int client_fd, client* current_client);
 
 /* Main Part */
 FILE * open_file(char * filename, char * flag) {
@@ -203,7 +203,7 @@ void write_reply_ok(int client_fd, client* current_client) {
 		shutdown_client(client_fd, current_client);
 		return;
 	}
-	if (total_byte_written == count) {
+	if ((size_t)total_byte_written == count) {
 		if (current_client->client_verb == PUT || current_client->client_verb == DELETE) {
 			shutdown_client(client_fd, current_client);
 			return;
@@ -232,7 +232,7 @@ void write_reply_error(int client_fd, client* current_client) {
 		shutdown_client(client_fd, current_client);
 		return;
 	}
-	if (total_byte_written == count) {
+	if ((size_t)total_byte_written == count) {
 		shutdown_client(client_fd, current_client);
 		return;
 	}
@@ -251,7 +251,7 @@ void reset_epoll_mode_to_write(int client_fd) {
 }
 
 void log_ok(int client_fd, client* current_client) {
-	char * buffer = crrent_client->reply;
+	char * buffer = current_client->reply;
 	memset(buffer, 0, MAX_REPLY_SIZE);
 	sprintf(buffer, "OK\n");
 	current_client->state = WRITE_REPLY_OK;
@@ -262,7 +262,7 @@ void log_ok(int client_fd, client* current_client) {
 void log_error(int client_fd, client* current_client, const char* error_message) {
 	char * buffer = current_client->reply;
 	memset(buffer, 0, MAX_REPLY_SIZE);
-	sprintf(buffer, "ERROR\n%s\n", errno_message);
+	sprintf(buffer, "ERROR\n%s\n", error_message);
 	current_client->state = WRITE_REPLY_ERROR;
 	current_client->offset = 0;
 	reset_epoll_mode_to_write(client_fd);
@@ -279,7 +279,7 @@ void read_size(int client_fd, client* current_client) {
 		return;
 	}
 	
-	if (total_byte_read == count) {
+	if ((size_t)total_byte_read == count) {
 		current_client->state = READ_PUT;
 		current_client->file = open_file(current_client->filename, "w");
 		if (current_client->file == NULL) {
@@ -297,12 +297,12 @@ void write_size(int client_fd, client* current_client) {
 	size_t count = sizeof(size_t) - current_client->offset;
 	ssize_t total_byte_written = server_write_all_to_socket(client_fd, buffer, count, &status);
 	
-	if (total_byte_written == -1) {
-		shutdown(client_fd, current_client);
+	if (total_byte_written < 0) {
+		shutdown_client(client_fd, current_client);
 		return;
 	}
-	if (total_byte_written == count) {
-		current_client->state = WRITE_FILE;
+	if ((size_t)total_byte_written == count) {
+		current_client->state = WRITE_GET;
 		current_client->offset = 0;
 		return;
 	}
