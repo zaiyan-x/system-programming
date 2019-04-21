@@ -24,6 +24,7 @@
 #define MAX_EVENTS 32
 #define MAX_HEADER_SIZE 1024
 #define MAX_R_W_SIZE 1024
+#define MAX_REPLY_SIZE 1024
 #define MAX_FILENAME_SIZE 256
 #define MAX_VERB_SIZE 8
 
@@ -46,7 +47,7 @@ typedef struct client_ {
 	verb client_verb;
 	char filename[MAX_FILENAME_SIZE];
 	int offset;
-	const char * error_message;
+	char reply[MAX_REPLY_SIZE];
 	char header[MAX_HEADER_SIZE];
 	FILE * file;
 	size_t file_size;
@@ -194,6 +195,45 @@ void setup_put(int client_fd, client* current_client) {
 	current_client->offset = 0;
 }
 
+void write_reply_ok(int client_fd, client* current_client) {
+	char * buffer = current_client->reply + current_client->offset;
+	size_t count = strlen(buffer);
+	ssize_t total_byte_written = server_write_all_to_socket(client_fd, buffer, count);
+	if (total_byte_written == -1) { //Something bad happened
+		shutdown_client(client_fd, current_client);
+		return;
+	}
+	if (total_byte_written == count) {
+		if (current_client->client_verb == PUT || current_client->client_verb == DELETE) {
+			shutdown_client(client_fd, current_client);
+			return;
+		} else if (current_client->client_verb == LIST || current_client->client_verb == GET) {
+			current_client->state = WRITE_SIZE;
+			current_client->offset = 0;
+			return;
+		} else {
+			perror("SERVER: abnormal VERB found in struct!");
+			return;
+		}
+	}
+	current_client->offset += total_byte_written;
+}
+
+void write_reply_error(int client_fd, client* current_client) {
+	char * buffer = current_client->reply + current_client->offset;
+	size_t count = strlen(buffer);
+	ssize_t total_byte_written = server_write_all_to_socket(client_fd, buffer, count);
+	if (total_byte_written == -1 ) { //Something bad happened
+		shutdown_client(client_fd, current_client);
+		return;
+	}
+	if (total_byte_written == count) {
+		shutdown_client(client_fd, current_client);
+		return;
+	}
+	current_client->offset += total_byte_written;
+}
+
 void reset_epoll_mode_to_write(int client_fd) {
 	struct epoll_event ev;
 	ev.events = EPOLLOUT;
@@ -202,13 +242,18 @@ void reset_epoll_mode_to_write(int client_fd) {
 }
 
 void log_ok(int client_fd, client* current_client) {
+	char * buffer = crrent_client->reply;
+	memset(buffer, 0, MAX_REPLY_SIZE);
+	sprintf(buffer, "OK\n");
 	current_client->state = WRITE_REPLY_OK;
 	current_client->offset = 0;
 	reset_epoll_mode_to_write(client_fd);
 }
 
 void log_error(int client_fd, client* current_client, const char* error_message) {
-	current_client->error_message = error_message;
+	char * buffer = current_client->reply;
+	memset(buffer, 0, MAX_REPLY_SIZE);
+	sprintf(buffer, "ERROR\n%s\n", errno_message);
 	current_client->state = WRITE_REPLY_ERROR;
 	current_client->offset = 0;
 	reset_epoll_mode_to_write(client_fd);
@@ -222,7 +267,7 @@ void read_header(int client_fd, client* current_client) {
 	char * buffer = current_client->header + current_client->offset;
 	int count = MAX_HEADER_SIZE - current_client->offset;
 	int status = ACTION_PAUSED;
-	int total_byte_read = server_read_line_from_socket(client_fd, buffer, count, &status);
+	ssize_t total_byte_read = server_read_line_from_socket(client_fd, buffer, count, &status);
 	
 	if (total_byte_read == -1) { //Something bad happened
 		log_error(client_fd, current_client, err_bad_request);
