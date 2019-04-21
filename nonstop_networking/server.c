@@ -64,8 +64,9 @@ void* client_copy_constructor(void* elem) {
 	return copy;
 }
 
-void* client_destructor(void* elem) {
+void client_destructor(void* elem) {
 	free(elem);
+	return;
 }
 
 void dispatch_client(int client_fd) {
@@ -74,7 +75,7 @@ void dispatch_client(int client_fd) {
 		exit(1);
 	}
 
-	client* current_client = （client*) dictionary_get(CLIENT_DIC, &client_fd);
+	client* current_client = (client*) dictionary_get(CLIENT_DIC, &client_fd);
 	if (current_client->state == READ_HEADER) {
 		read_header(client_fd, current_client);
 	} else if (current_client->state == READ_SIZE) {
