@@ -190,7 +190,7 @@ void setup_get(int client_fd, client* current_client) {
 void setup_put(int client_fd, client* current_client) {
 	current_client->state = READ_SIZE;
 	current_client->offset = 0;
-	current_client->file = open_file(current_client->fileame, "w");
+	current_client->file = open_file(current_client->filename, "w");
 	if (current_client->file == NULL) {
 		perror("SERVER: fopen() failed!");
 		shutdown_client(client_fd);
@@ -325,13 +325,13 @@ void write_file(int client_fd, client* current_client) {
 		memset(line, 0, MAX_R_W_SIZE);
 		current_byte_to_write = (total_byte_to_write < MAX_R_W_SIZE) ? total_byte_to_write : MAX_R_W_SIZE;
 		fread(line, 1, current_byte_to_write, file);
-		current_byte_written = server_write_all_to_socket(client_fd, line, current_byte_to_write, status);
+		current_byte_written = server_write_all_to_socket(client_fd, line, current_byte_to_write, &status);
 		if (current_byte_written < 0 || status == CONNECTION_LOST) {
 			fclose(file);
-			shutdown(client_fd);
+			shutdown_client(client_fd);
 			return;
 		}
-		if (current_byte_written < current_byte_to_write) { //rewind
+		if ((size_t)current_byte_written < current_byte_to_write) { //rewind
 			fseek(file, current_byte_written - current_byte_to_write, SEEK_CUR);
 			break;
 		}
