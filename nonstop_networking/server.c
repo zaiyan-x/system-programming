@@ -137,6 +137,7 @@ void setup_delete(int client_fd, client* current_client) {
  */
 void setup_list(int client_fd, client* current_client) {
 	size_t total_file_size = 0;
+	size_t current_file_size = 0;
 	FILE * list_temp_file = open_file("temp", "w");	
 	current_client->file = list_temp_file;
 	char * current_filename = NULL;
