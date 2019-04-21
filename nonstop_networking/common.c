@@ -17,6 +17,10 @@
 #define ACTION_PAUSED 1
 #define ACTION_COMPLETE 0
 
+ssize_t server_read_all_from_socket(int socket, char * buffer, size_t count, int * status) {
+
+}
+
 ssize_t server_write_all_to_socket(int socket, char * buffer, size_t count) {
 	ssize_t total_byte_written = 0;
 	ssize_t current_byte_written = 0;
