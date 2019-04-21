@@ -363,7 +363,7 @@ void read_header(int client_fd, client* current_client) {
 void shutdown_server() {
 	rmdir(SERVER_DIR);
 	vector_destroy(FILE_VECTOR);
-	disctionary_destroy(CLIENT_DIC);
+	dictionary_destroy(CLIENT_DIC);
 	close(EPOLL_FD);
 }
 
