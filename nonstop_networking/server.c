@@ -200,12 +200,12 @@ void write_reply_ok(int client_fd, client* current_client) {
 	int status = CONNECTED;
 	ssize_t total_byte_written = server_write_all_to_socket(client_fd, buffer, count, &status);
 	if (total_byte_written == -1) { //Something bad happened
-		shutdown_client(client_fd, current_client);
+		shutdown_client(client_fd);
 		return;
 	}
 	if ((size_t)total_byte_written == count) {
 		if (current_client->client_verb == PUT || current_client->client_verb == DELETE) {
-			shutdown_client(client_fd, current_client);
+			shutdown_client(client_fd);
 			return;
 		} else if (current_client->client_verb == LIST || current_client->client_verb == GET) {
 			current_client->state = WRITE_SIZE;
@@ -217,7 +217,7 @@ void write_reply_ok(int client_fd, client* current_client) {
 		}
 	}
 	if (status == CONNECTION_LOST) {
-		shutdown_client(client_fd, current_client);
+		shutdown_client(client_fd);
 		return;
 	}
 	current_client->offset += total_byte_written;
@@ -298,7 +298,7 @@ void write_size(int client_fd, client* current_client) {
 	ssize_t total_byte_written = server_write_all_to_socket(client_fd, buffer, count, &status);
 	
 	if (total_byte_written < 0) {
-		shutdown_client(client_fd, current_client);
+		shutdown_client(client_fd);
 		return;
 	}
 	if ((size_t)total_byte_written == count) {
