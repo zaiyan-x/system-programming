@@ -56,7 +56,7 @@ void write_reply_error(int client_fd, client* current_client);
 void write_get(int client_fd, client* current_client);
 void write_size(int client_fd, client* current_client);
 void setup_delete(int client_fd, client* current_client);
-void setup_file(int client_fd, client* current_client);
+void setup_list(int client_fd, client* current_client);
 void setup_get(int client_fd, client* current_client);
 void setup_put(int client_fd, client* current_client);
 void delete_file(char * filename);
@@ -72,7 +72,7 @@ void shutdown_server();
 void log_error(int client_fd, client* current_client, const char* error_message);
 void log_ok(int client_fd, client* current_client);
 void reset_epoll_mode_to_write(int client_fd);
-
+FILE * open_file(char * filename, char * flag);
 
 /* Client Information Struct */
 typedef struct client_ {
@@ -82,7 +82,19 @@ typedef struct client_ {
 	int offset;
 	const char * error_message;
 	char header[MAX_HEADER_SIZE];
+	FILE * file;
+	size_t file_size;
 } client;
+
+
+
+/* Main Part */
+FILE * open_file(char * filename, char * flag) {
+	char path[MAX_HEADER_SIZE];
+	memset(path, 0, MAX_HEADER_SIZE);
+	sprintf(path, "%s/%s", SERVER_DIR, filename);
+	return fopen(path, flag);
+}
 
 void delete_file(char * filename, int i) {
 	char path[MAX_HEADER_SIZE];
@@ -95,6 +107,9 @@ void delete_file(char * filename, int i) {
 	return;
 }
 
+/*
+ * Primary function for DELETE
+ */
 void setup_delete(int client_fd, client* current_client) {
 	int i = 0;
 	int found = 0;
@@ -117,13 +132,67 @@ void setup_delete(int client_fd, client* current_client) {
 	}
 }
 
-void setup_file(int client_fd, client* current_client);
-void setup_get(int client_fd, client* current_client);
-void setup_put(int client_fd, client* current_client);
+/*
+ * Primary function for LIST
+ */
+void setup_list(int client_fd, client* current_client) {
+	size_t total_file_size = 0;
+	FILE * list_temp_file = open_file("temp", "w");	
+	current_client->file = list_temp_file;
+	char * current_filename = NULL;
+	
+	VECTOR_FOR_EACH(FILE_VECTOR, node, {
+		current_filename = (char*) node;
+		current_file_size = strlen(current_filename);
+		total_file_size += current_file_size + 1;
+		fwrite(current_filename, 1, current_file_size, list_temp_file);
+		fwrite("\n", 1, 1, list_temp_file);
+	}
+	current_client->file_size = total_file_size - 1;
+	log_ok(client_fd, current_client);
+}
+			
+/*
+ * Primary function for GET
+ */
+void setup_get(int client_fd, client* current_client) {
+	int i = 0;
+	int found = 0;
+	char * filename = NULL;
+	VECTOR_FOR_EACH(FILE_VECTOR, node, {
+		filename = (char*) node;
+		if (strcmp(filename, current_client->filename) == 0) {
+			found = 1;
+			break;
+		}
+	});
+	if (found == 0) {
+		log_error(client_fd, current_client, err_no_such_file);
+	} else {
+		current_client->file = open_file(current_client->filename, "r");
+		if (!current_client->file) {
+			log_error(client_fd, current_client, err_no_such_file);
+			return;
+		}
+		fseek(current_client->file, 0, SEEK_END);
+		current_client->file_size = ftell(current_client->file);
+		fseek(current_client->file, 0, SEEK_SET);
+		
+		log_ok(client_fd, current_client);
+	}	
+}
+			
+/*
+ * Primary function for PUT
+ */
+void setup_put(int client_fd, client* current_client) {
+	current_client->state = READ_SIZE;
+	current_client->offset = 0;
+}
 
 void reset_epoll_mode_to_write(int client_fd) {
 	struct epoll_event ev;
-	ev.events - EPOLLOUT;
+	ev.events = EPOLLOUT;
 	ev.data.fd = client_fd;
 	epoll_ctl(EPOLL_FD, EPOLL_CTL_MOD, client_fd, &ev);
 }
@@ -140,8 +209,11 @@ void log_error(int client_fd, client* current_client, const char* error_message)
 	current_client->offset = 0;
 	reset_epoll_mode_to_write(client_fd);
 }
-
-/* Main Part */
+			
+void read_size(int client_fd, client* current_client) {
+	
+}
+			
 void read_header(int client_fd, client* current_client) {
 	char * buffer = current_client->header + current_client->offset;
 	int count = MAX_HEADER_SIZE - current_client->offset;
