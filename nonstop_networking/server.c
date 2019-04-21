@@ -25,13 +25,13 @@
 /* Client State Macros */
 #define READ_HEADER 0
 #define READ_SIZE 1
-#define READ_CLIENT_PUT 2
-#define WRITE_CLIENT_LIST 3
+#define READ_PUT 2
+#define WRITE_LIST 3
 #define WRITE_REPLY_OK 4
 #define WRITE_REPLY_ERROR 5
 #define WRITE_REPLY_ERROR_MESSAGE 6
-#define WRITE_CLIENT_GET 7
-#define WRITE_REPLY_SIZE 8
+#define WRITE_GET 7
+#define WRITE_SIZE 8
 
 /* Global Server Variables */
 static char* SERVER_DIR;
@@ -68,31 +68,34 @@ void* client_destructor(void* elem) {
 	free(elem);
 }
 
-void handle_client(int client_fd) {
+void dispatch_client(int client_fd) {
 	if (!dictionary_contains(CLIENT_DIC, &client_fd)) {
-		perror("SERVER: dictionary failed!");
+		perror("SERVER: dictionary does not contain client_fd!");
 		exit(1);
 	}
 
-	client* curr_client = long_to_client_ptr(dictionary_get(CLIENT_DIC, &client_fd));
-
-	if (curr_client->state == FETCH_HEADER) {
-		fetch_header(client_fd, curr_client);
-	} else if (curr_client->state == FETCH_SIZE) {
-		fetch_size(client_fd, curr_client);
-	} else if (curr_client->state == WRITE_OK) {
-		reply_ok(client_fd, curr_client);
-	} else if (curr_client->state == WRITE_ERROR) {
-		reply_error(client_fd, curr_client);
-	} else if (curr_client->state == WRITE_ERROR_MESSAGE) {
-		reply_error_message(client_fd, curr_client);
-	} else if (curr_client->state == PUT_FILE) {
-		put_file(client_fd, curr_client);
-	} else if (curr_client->state == LIST_FILE) {
-		list_file(client_fd, curr_client);
-	} else if (curr_client->state == WRITE_SIZE) {
-		reply_size(client_fd, curr_client);
-	} else if (curr_client->state == GET_FILE
+	client* current_client = （client*) dictionary_get(CLIENT_DIC, &client_fd);
+	if (current_client->state == READ_HEADER) {
+		read_header(client_fd, current_client);
+	} else if (current_client->state == READ_SIZE) {
+		read_size(client_fd, current_client);
+	} else if (current_client->state == READ_PUT) {
+		read_put(client_fd, current_client);
+	} else if (current_client->state == WRITE_LIST) {
+		write_list(client_fd, current_client);
+	} else if (current_client->state == WRITE_REPLY_OK) {
+		write_reply_ok(client_fd, current_client);
+	} else if (current_client->state == WRITE_REPLY_ERROR) {
+		write_reply_error(client_fd, current_client);
+	} else if (current_client->state == WRITE_REPLY_ERROR_MESSAGE) {
+		write_reply_error_message(client_fd, current_client);
+	} else if (current_client->state == WRITE_GET) {
+		write_get(client_fd, current_client);
+	} else if (current_client->state == WRITE_SIZE) {
+		write_size(client_fd, current_client);
+	} else {
+		perror("SERVER: unknown state happened!");
+	}
 }
 
 
@@ -156,11 +159,11 @@ void setup_server(char * port) {
 
 	//Initiate client dictionary data structure
 	CLIENT_DIC = dictionary_create(int_hash_function,
-								   int_compare,
-								   int_copy_constructor,
-								   int_destructor,
-								   client_copy_constructor,
-								   client_destructor);
+				       int_compare,
+				       int_copy_constructor,
+				       int_destructor,
+				       client_copy_constructor,
+				       client_destructor);
 
 	return;
 }
@@ -192,7 +195,7 @@ void server_listen_to_client() {
 		int i;
 		int client_fd;
 		int fd_flag;
-		client new_client = NULL;
+		client new_client;
 		for (i = 0; i < num_of_client; i++) {
 			//If we got our listen socket back, we have a new connection
 			if (events[i].data.fd == SOCKET_FD) {
@@ -216,14 +219,12 @@ void server_listen_to_client() {
 				}
 
 				//Add new key-value pair to dictionary
-				new_client = malloc(sizeof(client));
-				memset(new_client, 0, sizeof(client));
-				new_client->state = FETCH_HEADER;
-				new_client->buffer = 0;
-				new_client_ptr = client_ptr_to_long(new_client);
-				dictionary_set(CLIENT_DIC, &client_fd, &new_client_ptr);
+				memset(&new_client, 0, sizeof(client));
+				new_client.state = READ_HEADER;
+				new_client.buffer = 0;
+				dictionary_set(CLIENT_DIC, &client_fd, &new_client);
 		} else {
-			handle_client(events[i].data.fd);
+			dispatch_client(events[i].data.fd);
 		}
 }
 
