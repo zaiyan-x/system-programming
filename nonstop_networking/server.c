@@ -313,7 +313,31 @@ void write_size(int client_fd, client* current_client) {
 }
 
 void write_file(int client_fd, client* current_client) {
+	FILE * file = current_client->file;
+	size_t total_byte_written = ftell(file);
+	size_t total_byte_to_write = current_client->file_size - total_byte_written;
+	size_t current_byte_to_write = 0;
+	ssize_t current_byte_written = 0;
+	char line[MAX_R_W_SIZE];
+	int status = CONNECTED;
 	
+	while (total_byte_to_write > 0) {
+		memset(line, 0, MAX_R_W_SIZE);
+		current_byte_to_write = (total_byte_to_write < MAX_R_W_SIZE) ? total_byte_to_write : MAX_R_W_SIZE;
+		fread(line, 1, current_byte_to_write, file);
+		current_byte_written = server_write_all_to_socket(client_fd, line, current_byte_to_write, status);
+		if (current_byte_written < 0 || status == CONNECTION_LOST) {
+			fclose(file);
+			shutdown(client_fd);
+			return;
+		}
+		if (current_byte_written < current_byte_to_write) { //rewind
+			fseek(file, current_byte_written - current_byte_to_write, SEEK_CUR);
+			break;
+		}
+		total_byte_written += current_byte_written;
+		total_byte_to_write -= current_byte_written;
+	}
 }
 		
 			
