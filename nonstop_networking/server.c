@@ -21,6 +21,8 @@
 #define MAX_EVENTS 32
 #define MAX_HEADER_SIZE 1024
 #define MAX_R_W_SIZE 1024
+#define MAX_FILENAME_SIZE 256
+#define MAX_VERB_SIZE 8
 
 /* Client State Macros */
 #define READ_HEADER 0
@@ -29,9 +31,12 @@
 #define WRITE_LIST 3
 #define WRITE_REPLY_OK 4
 #define WRITE_REPLY_ERROR 5
-#define WRITE_REPLY_ERROR_MESSAGE 6
-#define WRITE_GET 7
-#define WRITE_SIZE 8
+#define WRITE_GET 6
+#define WRITE_SIZE 7
+
+/* Status Macros */
+#define ACTION_PAUSED 1
+#define ACTION_COMPLETE 0
 
 /* Global Server Variables */
 static char* SERVER_DIR;
@@ -41,19 +46,222 @@ static int EPOLL_FD;
 static dictionary * CLIENT_DIC;
 
 /* Server Function Declaration */
-void shutdown_server(void);
-void setup_server(char * port);
+//Server Helpers
+void read_header(int client_fd, client* current_client);
+void read_size(int client_fd, client* current_client);
+void read_put(int client_fd, client* current_client);
+void write_list(int client_fd, client* current_client);
+void write_reply_ok(int client_fd, client* current_client);
+void write_reply_error(int client_fd, client* current_client);
+void write_get(int client_fd, client* current_client);
+void write_size(int client_fd, client* current_client);
+void setup_delete(int client_fd, client* current_client);
+void setup_list(int client_fd, client* current_client);
+void setup_get(int client_fd, client* current_client);
+void setup_put(int client_fd, client* current_client);
+void delete_file(char * filename);
+
+//Server Infrastructures
 void server_listen_to_client();
+void setup_server(char * port);
+void dispatch_client(int client_fd);
+void dispatch_action(int client_fd, client* current_client);
+void* client_copy_constructor(void* elem);
+void client_destructor(void* elem);
+void shutdown_server();
+void log_error(int client_fd, client* current_client, const char* error_message);
+void log_ok(int client_fd, client* current_client);
+void reset_epoll_mode_to_write(int client_fd);
+FILE * open_file(char * filename, char * flag);
 
 /* Client Information Struct */
 typedef struct client_ {
 	int state;
 	verb client_verb;
-	char * filename;
+	char filename[MAX_FILENAME_SIZE];
 	int offset;
 	const char * error_message;
+	char header[MAX_HEADER_SIZE];
+	FILE * file;
+	size_t file_size;
 } client;
 
+
+
+/* Main Part */
+FILE * open_file(char * filename, char * flag) {
+	char path[MAX_HEADER_SIZE];
+	memset(path, 0, MAX_HEADER_SIZE);
+	sprintf(path, "%s/%s", SERVER_DIR, filename);
+	return fopen(path, flag);
+}
+
+void delete_file(char * filename, int i) {
+	char path[MAX_HEADER_SIZE];
+	memset(path, 0, MAX_HEADER_SIZE);
+	sprintf(path, "%s/%s", SERVER_DIR, filename);
+	if (unlink(path) != 0) {
+		perror("SERVER: unlink() failed!");
+	}
+	vector_erase(FILE_DIR, i);
+	return;
+}
+
+/*
+ * Primary function for DELETE
+ */
+void setup_delete(int client_fd, client* current_client) {
+	int i = 0;
+	int found = 0;
+	char * filename = NULL;
+	VECTOR_FOR_EACH(FILE_VECTOR, node, {
+		filename = (char*) node;
+		if (strcmp(filename, current_client->filename) == 0) {
+			found = 1;
+			break;
+		}
+		i++;
+	});
+	
+	if (found == 0) {
+		log_error(current_client, err_no_such_file);
+		write_reply_error(client_fd, current_client);
+	} else {
+		delete_file(current_client->filename, i);
+		log_ok(client_fd, current_client);
+	}
+}
+
+/*
+ * Primary function for LIST
+ */
+void setup_list(int client_fd, client* current_client) {
+	size_t total_file_size = 0;
+	FILE * list_temp_file = open_file("temp", "w");	
+	current_client->file = list_temp_file;
+	char * current_filename = NULL;
+	
+	VECTOR_FOR_EACH(FILE_VECTOR, node, {
+		current_filename = (char*) node;
+		current_file_size = strlen(current_filename);
+		total_file_size += current_file_size + 1;
+		fwrite(current_filename, 1, current_file_size, list_temp_file);
+		fwrite("\n", 1, 1, list_temp_file);
+	}
+	current_client->file_size = total_file_size - 1;
+	log_ok(client_fd, current_client);
+}
+			
+/*
+ * Primary function for GET
+ */
+void setup_get(int client_fd, client* current_client) {
+	int i = 0;
+	int found = 0;
+	char * filename = NULL;
+	VECTOR_FOR_EACH(FILE_VECTOR, node, {
+		filename = (char*) node;
+		if (strcmp(filename, current_client->filename) == 0) {
+			found = 1;
+			break;
+		}
+	});
+	if (found == 0) {
+		log_error(client_fd, current_client, err_no_such_file);
+	} else {
+		current_client->file = open_file(current_client->filename, "r");
+		if (!current_client->file) {
+			log_error(client_fd, current_client, err_no_such_file);
+			return;
+		}
+		fseek(current_client->file, 0, SEEK_END);
+		current_client->file_size = ftell(current_client->file);
+		fseek(current_client->file, 0, SEEK_SET);
+		
+		log_ok(client_fd, current_client);
+	}	
+}
+			
+/*
+ * Primary function for PUT
+ */
+void setup_put(int client_fd, client* current_client) {
+	current_client->state = READ_SIZE;
+	current_client->offset = 0;
+}
+
+void reset_epoll_mode_to_write(int client_fd) {
+	struct epoll_event ev;
+	ev.events = EPOLLOUT;
+	ev.data.fd = client_fd;
+	epoll_ctl(EPOLL_FD, EPOLL_CTL_MOD, client_fd, &ev);
+}
+
+void log_ok(int client_fd, client* current_client) {
+	current_client->state = WRITE_REPLY_OK;
+	current_client->offset = 0;
+	reset_epoll_mode_to_write(client_fd);
+}
+
+void log_error(int client_fd, client* current_client, const char* error_message) {
+	current_client->error_message = error_message;
+	current_client->state = WRITE_REPLY_ERROR;
+	current_client->offset = 0;
+	reset_epoll_mode_to_write(client_fd);
+}
+			
+void read_size(int client_fd, client* current_client) {
+	
+}
+			
+void read_header(int client_fd, client* current_client) {
+	char * buffer = current_client->header + current_client->offset;
+	int count = MAX_HEADER_SIZE - current_client->offset;
+	int status = ACTION_PAUSED;
+	int total_byte_read = server_read_line_from_socket(client_fd, buffer, count, status);
+	
+	if (total_byte_read == -1) { //Something bad happened
+		log_error(current_client, err_bad_request);
+	}
+	
+	if (status == ACTION_PAUSED) {
+		current_client->offset += total_byte_read;
+	} else if (status == ACTION_COMPLETE) {
+		memset(current_client->filename, 0, MAX_FILENAME_SIZE);
+		char verb_string[MAX_VERB_SIZE];
+		memset(verb_string, 0, MAX_VERB_SIZE);
+		
+		int retval = sscanf(current_client->header, "%s %s", verb_string, current_client->filename);
+		
+		if (retval == 0) { //Bad format
+			log_error(client_fd, current_client, err_bad_request);
+		}
+		if (strcmp(verb_string, "LIST") == 0) {
+			current_client->client_verb = LIST;
+			setup_list(client_fd, current_client);
+		} else if (strcmp(verb_string, "GET") == 0) {
+			current_client->client_verb = GET;
+			if (retval != 2) {
+				log_error(client_fd, current_client, err_bad_request);
+			}
+			setup_get(client_fd, current_client);
+		} else if (strcmp(verb_string, "DELETE") == 0) {
+			current_client->client_verb = DELETE;
+			if (retval != 2) {
+				log_error(client_fd, current_client, err_bad_request);
+			}
+			setup_delete(client_fd, current_client);
+		} else if (strcmp(verb_string, "PUT") == 0) {
+			current_client->client_verb = PUT;
+			if (retval != 2) {
+				log_error(client_fd, current_client, err_bad_request);
+			}
+			setup_put(client_fd, current_client);
+		} else { //Something really bad happened
+			log_error(client_fd, current_client, err_bad_request);
+		}
+	}	
+}
 void shutdown_server() {
 
 }
