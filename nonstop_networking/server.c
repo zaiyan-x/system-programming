@@ -223,6 +223,7 @@ void read_header(int client_fd, client* current_client) {
 	
 	if (total_byte_read == -1) { //Something bad happened
 		log_error(client_fd, current_client, err_bad_request);
+		return;
 	}
 	
 	if (status == ACTION_PAUSED) {
@@ -236,6 +237,7 @@ void read_header(int client_fd, client* current_client) {
 		
 		if (retval == 0) { //Bad format
 			log_error(client_fd, current_client, err_bad_request);
+			return;
 		}
 		if (strcmp(verb_string, "LIST") == 0) {
 			current_client->client_verb = LIST;
