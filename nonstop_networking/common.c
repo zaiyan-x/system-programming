@@ -13,6 +13,43 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 
+/* Status Macros */
+#define ACTION_PAUSED 1
+#define ACTION_COMPLETE 0
+
+ssize_t server_read_line_from_socket(int socket, char * buffer, size_t count, int* status) {
+	ssize_t total_byte_read = 0;
+	ssize_t current_byte_read = 0;
+	while (1) {
+		current_byte_read = read(socket, buffer + total_byte_read, 1);
+		if (current_byte_read <= 0) {
+			if (current_byte_read == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+				break;
+			}
+			if (current_byte_read == -1 && errno == EINTR) { //retry
+				continue;
+			}
+			if (current_byte_read == -1 && errno != EINTR) { //bad things happened
+				return -1;
+			}
+			if (current_byte_read == 0) { //end prematurely
+				return -1;
+			}
+		}
+		if (buffer[total_byte_read] == '\n') {
+			buffer[total_byte_read] = 0;
+			total_byte_read += current_byte_read;
+			*status = ACTION_COMPLETE;
+			break;
+		}
+		total_byte_read += current_byte_read;
+		if (total_byte_read == (ssize_t) count) {
+			return -1;
+		}
+	}
+	return total_byte_read;
+}
+
 size_t handle_return_value(ssize_t byte_executed, size_t byte_to_execute, size_t total_byte_to_execute) {
 	if (byte_executed < 0) {
 		print_connection_closed();
