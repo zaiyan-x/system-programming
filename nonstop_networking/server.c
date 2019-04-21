@@ -190,6 +190,11 @@ void setup_get(int client_fd, client* current_client) {
 void setup_put(int client_fd, client* current_client) {
 	current_client->state = READ_SIZE;
 	current_client->offset = 0;
+	current_client->file = open_file(current_client->fileame, "w");
+	if (current_client->file == NULL) {
+		perror("SERVER: fopen() failed!");
+		shutdown_client(client_fd);
+	}
 }
 
 void write_reply_ok(int client_fd, client* current_client) {
@@ -305,6 +310,10 @@ void write_size(int client_fd, client* current_client) {
 		return;
 	}
 	current_client->offset += total_byte_written;
+}
+
+void write_file(int client_fd, client* current_client) {
+	
 }
 		
 			
