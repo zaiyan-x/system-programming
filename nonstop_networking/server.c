@@ -29,9 +29,8 @@
 #define WRITE_LIST 3
 #define WRITE_REPLY_OK 4
 #define WRITE_REPLY_ERROR 5
-#define WRITE_REPLY_ERROR_MESSAGE 6
-#define WRITE_GET 7
-#define WRITE_SIZE 8
+#define WRITE_GET 6
+#define WRITE_SIZE 7
 
 /* Global Server Variables */
 static char* SERVER_DIR;
@@ -41,9 +40,23 @@ static int EPOLL_FD;
 static dictionary * CLIENT_DIC;
 
 /* Server Function Declaration */
-void shutdown_server(void);
-void setup_server(char * port);
+//Server Helpers
+void read_header(int client_fd, client* current_client);
+void read_size(int client_fd, client* current_client);
+void read_put(int client_fd, client* current_client);
+void write_list(int client_fd, client* current_client);
+void write_reply_ok(int client_fd, client* current_client);
+void write_reply_error(int client_fd, client* current_client);
+void write_get(int client_fd, client* current_client);
+void write_size(int client_fd, client* current_client);
+//Server Infrastructures
 void server_listen_to_client();
+void setup_server(char * port);
+void dispatch_client(int client_fd);
+void* client_copy_constructor(void* elem);
+void client_destructor(void* elem);
+void shutdown_server();
+
 
 /* Client Information Struct */
 typedef struct client_ {
@@ -54,6 +67,11 @@ typedef struct client_ {
 	const char * error_message;
 } client;
 
+
+/* Main Part */
+void read_header(int client_fd, client* current_client) {
+		
+}
 void shutdown_server() {
 
 }
