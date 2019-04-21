@@ -429,11 +429,13 @@ void server_listen_to_client() {
 				//Add new key-value pair to dictionary
 				memset(&new_client, 0, sizeof(client));
 				new_client.state = READ_HEADER;
-				new_client.buffer = 0;
+				new_client.offset = 0;
 				dictionary_set(CLIENT_DIC, &client_fd, &new_client);
-		} else {
-			dispatch_client(events[i].data.fd);
+			} else {
+				dispatch_client(events[i].data.fd);
+			}
 		}
+	}
 }
 
 int main(int argc, char **argv) {
