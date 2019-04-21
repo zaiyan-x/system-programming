@@ -59,6 +59,7 @@ void setup_delete(int client_fd, client* current_client);
 void setup_file(int client_fd, client* current_client);
 void setup_get(int client_fd, client* current_client);
 void setup_put(int client_fd, client* current_client);
+void delete_file(char * filename);
 
 //Server Infrastructures
 void server_listen_to_client();
@@ -68,8 +69,9 @@ void dispatch_action(int client_fd, client* current_client);
 void* client_copy_constructor(void* elem);
 void client_destructor(void* elem);
 void shutdown_server();
-void log_error(client* current_client, const char* error_message);
-
+void log_error(int client_fd, client* current_client, const char* error_message);
+void log_ok(int client_fd, client* current_client);
+void reset_epoll_mode_to_write(int client_fd);
 
 
 /* Client Information Struct */
@@ -82,11 +84,61 @@ typedef struct client_ {
 	char header[MAX_HEADER_SIZE];
 } client;
 
-void log_error(client* current_client, const char* error_message) {
+void delete_file(char * filename, int i) {
+	char path[MAX_HEADER_SIZE];
+	memset(path, 0, MAX_HEADER_SIZE);
+	sprintf(path, "%s/%s", SERVER_DIR, filename);
+	if (unlink(path) != 0) {
+		perror("SERVER: unlink() failed!");
+	}
+	vector_erase(FILE_DIR, i);
+	return;
+}
+
+void setup_delete(int client_fd, client* current_client) {
+	int i = 0;
+	int found = 0;
+	char * filename = NULL;
+	VECTOR_FOR_EACH(FILE_VECTOR, node, {
+		filename = (char*) node;
+		if (strcmp(filename, current_client->filename) == 0) {
+			found = 1;
+			break;
+		}
+		i++;
+	});
+	
+	if (found == 0) {
+		log_error(current_client, err_no_such_file);
+		write_reply_error(client_fd, current_client);
+	} else {
+		delete_file(current_client->filename, i);
+		log_ok(client_fd, current_client);
+	}
+}
+
+void setup_file(int client_fd, client* current_client);
+void setup_get(int client_fd, client* current_client);
+void setup_put(int client_fd, client* current_client);
+
+void reset_epoll_mode_to_write(int client_fd) {
+	struct epoll_event ev;
+	ev.events - EPOLLOUT;
+	ev.data.fd = client_fd;
+	epoll_ctl(EPOLL_FD, EPOLL_CTL_MOD, client_fd, &ev);
+}
+
+void log_ok(int client_fd, client* current_client) {
+	current_client->state = WRITE_REPLY_OK;
+	current_client->offset = 0;
+	reset_epoll_mode_to_write(client_fd);
+}
+
+void log_error(int client_fd, client* current_client, const char* error_message) {
 	current_client->error_message = error_message;
 	current_client->state = WRITE_REPLY_ERROR;
 	current_client->offset = 0;
-	return;
+	reset_epoll_mode_to_write(client_fd);
 }
 
 /* Main Part */
@@ -98,7 +150,6 @@ void read_header(int client_fd, client* current_client) {
 	
 	if (total_byte_read == -1) { //Something bad happened
 		log_error(current_client, err_bad_request);
-		write_reply_error(client_fd, current_client);
 	}
 	
 	if (status == ACTION_PAUSED) {
@@ -111,8 +162,7 @@ void read_header(int client_fd, client* current_client) {
 		int retval = sscanf(current_client->header, "%s %s", verb_string, current_client->filename);
 		
 		if (retval == 0) { //Bad format
-			log_error(current_client, err_bad_request);
-			write_reply_error(client_fd, current_client);
+			log_error(client_fd, current_client, err_bad_request);
 		}
 		if (strcmp(verb_string, "LIST") == 0) {
 			current_client->client_verb = LIST;
@@ -120,27 +170,23 @@ void read_header(int client_fd, client* current_client) {
 		} else if (strcmp(verb_string, "GET") == 0) {
 			current_client->client_verb = GET;
 			if (retval != 2) {
-				log_error(current_client, err_bad_request);
-				write_reply_error(client_fd, current_client);
+				log_error(client_fd, current_client, err_bad_request);
 			}
 			setup_get(client_fd, current_client);
 		} else if (strcmp(verb_string, "DELETE") == 0) {
 			current_client->client_verb = DELETE;
 			if (retval != 2) {
-				log_error(current_client, err_bad_request);
-				write_reply_error(client_fd, current_client);
+				log_error(client_fd, current_client, err_bad_request);
 			}
 			setup_delete(client_fd, current_client);
 		} else if (strcmp(verb_string, "PUT") == 0) {
 			current_client->client_verb = PUT;
 			if (retval != 2) {
-				log_error(current_client, err_bad_request);
-				write_reply_error(client_fd, current_client);
+				log_error(client_fd, current_client, err_bad_request);
 			}
 			setup_put(client_fd, current_client);
 		} else { //Something really bad happened
-			log_error(current_client, err_bad_request);
-			write_reply_error(client_fd, current_client);
+			log_error(client_fd, current_client, err_bad_request);
 		}
 	}	
 }
