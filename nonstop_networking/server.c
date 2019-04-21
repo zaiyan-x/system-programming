@@ -21,6 +21,8 @@
 #define MAX_EVENTS 32
 #define MAX_HEADER_SIZE 1024
 #define MAX_R_W_SIZE 1024
+#define MAX_FILENAME_SIZE 256
+#define MAX_VERB_SIZE 8
 
 /* Client State Macros */
 #define READ_HEADER 0
@@ -31,6 +33,10 @@
 #define WRITE_REPLY_ERROR 5
 #define WRITE_GET 6
 #define WRITE_SIZE 7
+
+/* Status Macros */
+#define ACTION_PAUSED 1
+#define ACTION_COMPLETE 0
 
 /* Global Server Variables */
 static char* SERVER_DIR;
@@ -49,28 +55,94 @@ void write_reply_ok(int client_fd, client* current_client);
 void write_reply_error(int client_fd, client* current_client);
 void write_get(int client_fd, client* current_client);
 void write_size(int client_fd, client* current_client);
+void setup_delete(int client_fd, client* current_client);
+void setup_file(int client_fd, client* current_client);
+void setup_get(int client_fd, client* current_client);
+void setup_put(int client_fd, client* current_client);
+
 //Server Infrastructures
 void server_listen_to_client();
 void setup_server(char * port);
 void dispatch_client(int client_fd);
+void dispatch_action(int client_fd, client* current_client);
 void* client_copy_constructor(void* elem);
 void client_destructor(void* elem);
 void shutdown_server();
+void log_error(client* current_client, const char* error_message);
+
 
 
 /* Client Information Struct */
 typedef struct client_ {
 	int state;
 	verb client_verb;
-	char * filename;
+	char filename[MAX_FILENAME_SIZE];
 	int offset;
 	const char * error_message;
+	char header[MAX_HEADER_SIZE];
 } client;
 
+void log_error(client* current_client, const char* error_message) {
+	current_client->error_message = error_message;
+	current_client->state = WRITE_REPLY_ERROR;
+	current_client->offset = 0;
+	return;
+}
 
 /* Main Part */
 void read_header(int client_fd, client* current_client) {
+	char * buffer = current_client->header + current_client->offset;
+	int count = MAX_HEADER_SIZE - current_client->offset;
+	int status = ACTION_PAUSED;
+	int total_byte_read = server_read_line_from_socket(client_fd, buffer, count, status);
+	
+	if (total_byte_read == -1) { //Something bad happened
+		log_error(current_client, err_bad_request);
+		write_reply_error(client_fd, current_client);
+	}
+	
+	if (status == ACTION_PAUSED) {
+		current_client->offset += total_byte_read;
+	} else if (status == ACTION_COMPLETE) {
+		memset(current_client->filename, 0, MAX_FILENAME_SIZE);
+		char verb_string[MAX_VERB_SIZE];
+		memset(verb_string, 0, MAX_VERB_SIZE);
 		
+		int retval = sscanf(current_client->header, "%s %s", verb_string, current_client->filename);
+		
+		if (retval == 0) { //Bad format
+			log_error(current_client, err_bad_request);
+			write_reply_error(client_fd, current_client);
+		}
+		if (strcmp(verb_string, "LIST") == 0) {
+			current_client->client_verb = LIST;
+			setup_list(client_fd, current_client);
+		} else if (strcmp(verb_string, "GET") == 0) {
+			current_client->client_verb = GET;
+			if (retval != 2) {
+				log_error(current_client, err_bad_request);
+				write_reply_error(client_fd, current_client);
+			}
+			setup_get(client_fd, current_client);
+		} else if (strcmp(verb_string, "DELETE") == 0) {
+			current_client->client_verb = DELETE;
+			if (retval != 2) {
+				log_error(current_client, err_bad_request);
+				write_reply_error(client_fd, current_client);
+			}
+			setup_delete(client_fd, current_client);
+		} else if (strcmp(verb_string, "PUT") == 0) {
+			current_client->client_verb = PUT;
+			if (retval != 2) {
+				log_error(current_client, err_bad_request);
+				write_reply_error(client_fd, current_client);
+			}
+			setup_put(client_fd, current_client);
+		} else { //Something really bad happened
+			log_error(current_client, err_bad_request);
+			write_reply_error(client_fd, current_client);
+		}
+	}	
 }
 void shutdown_server() {
 
