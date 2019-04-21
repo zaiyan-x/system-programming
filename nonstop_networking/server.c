@@ -90,7 +90,7 @@ void log_error(int client_fd, client* current_client, const char* error_message)
 void log_ok(int client_fd, client* current_client);
 void reset_epoll_mode_to_write(int client_fd);
 FILE * open_file(char * filename, char * flag);
-void shutdown_client(int client_fd, client* current_client);
+void shutdown_client(int client_fd);
 
 /* Main Part */
 FILE * open_file(char * filename, char * flag) {
@@ -362,6 +362,18 @@ void read_header(int client_fd, client* current_client) {
 }
 void shutdown_server() {
 
+}
+
+void shutdown_client(int client_fd) {
+	//Remove socket from EPOLL_FD
+	epoll_ctl(EPOLL_FD, EPOLL_CTL_DEL, client_fd, NULL);
+
+	//Close client socket
+	shutdown(client_fd, SHUT_RDWR);
+	close(client_fd);
+	
+	//Remove client*
+	dictionary_remove(CLIENT_DIC, &client_fd);
 }
 
 void* client_copy_constructor(void* elem) {
