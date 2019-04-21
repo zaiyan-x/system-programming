@@ -32,11 +32,10 @@
 #define READ_HEADER 0
 #define READ_SIZE 1
 #define READ_PUT 2
-#define WRITE_LIST 3
+#define WRITE_FILE 3
 #define WRITE_REPLY_OK 4
 #define WRITE_REPLY_ERROR 5
-#define WRITE_GET 6
-#define WRITE_SIZE 7
+#define WRITE_SIZE 6
 
 /* Status Macros */
 #define ACTION_PAUSED 1
@@ -67,10 +66,9 @@ static dictionary * CLIENT_DIC;
 void read_header(int client_fd, client* current_client);
 void read_size(int client_fd, client* current_client);
 void read_put(int client_fd, client* current_client);
-void write_list(int client_fd, client* current_client);
+void write_file(int client_fd, client* current_client);
 void write_reply_ok(int client_fd, client* current_client);
 void write_reply_error(int client_fd, client* current_client);
-void write_get(int client_fd, client* current_client);
 void write_size(int client_fd, client* current_client);
 void setup_delete(int client_fd, client* current_client);
 void setup_list(int client_fd, client* current_client);
@@ -302,7 +300,7 @@ void write_size(int client_fd, client* current_client) {
 		return;
 	}
 	if ((size_t)total_byte_written == count) {
-		current_client->state = WRITE_GET;
+		current_client->state = WRITE_FILE;
 		current_client->offset = 0;
 		return;
 	}
@@ -403,14 +401,12 @@ void dispatch_client(int client_fd) {
 		read_size(client_fd, current_client);
 	} else if (current_client->state == READ_PUT) {
 		read_put(client_fd, current_client);
-	} else if (current_client->state == WRITE_LIST) {
-		write_list(client_fd, current_client);
+	} else if (current_client->state == WRITE_FILE) {
+		write_file(client_fd, current_client);
 	} else if (current_client->state == WRITE_REPLY_OK) {
 		write_reply_ok(client_fd, current_client);
 	} else if (current_client->state == WRITE_REPLY_ERROR) {
 		write_reply_error(client_fd, current_client);
-	} else if (current_client->state == WRITE_GET) {
-		write_get(client_fd, current_client);
 	} else if (current_client->state == WRITE_SIZE) {
 		write_size(client_fd, current_client);
 	} else {
