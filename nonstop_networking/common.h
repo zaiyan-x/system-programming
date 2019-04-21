@@ -22,7 +22,7 @@ size_t handle_return_value(ssize_t byte_executed, size_t byte_to_execute, size_t
 
 /* server.c */
 ssize_t server_read_line_from_socket(int socket, char * buffer, size_t count, int* status);
-ssize_t server_write_all_to_socket(int socket, char * buffer, size_t count);
+ssize_t server_write_all_to_socket(int socket, char * buffer, size_t count, int* status);
 ssize_t server_read_all_from_socket(int socket, char *buffer, size_t count, int* status);
 
 //Helper functions
