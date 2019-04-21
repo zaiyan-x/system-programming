@@ -58,12 +58,14 @@ void shutdown_server() {
 
 }
 
-long client_ptr_to_long(client * ptr) {
-	return (long) ((void*) ptr);
+void* client_copy_constructor(void* elem) {
+	client * copy = malloc(sizeof(client));
+	memcpy(copy, elem, sizeof(client));
+	return copy;
 }
 
-client * long_to_client_ptr(long * client) {
-	return (client *) *client;
+void* client_destructor(void* elem) {
+	free(elem);
 }
 
 void handle_client(int client_fd) {
@@ -153,7 +155,12 @@ void setup_server(char * port) {
 	}
 
 	//Initiate client dictionary data structure
-	CLIENT_DIC = int_to_long_dictionary_create();
+	CLIENT_DIC = dictionary_create(int_hash_function,
+								   int_compare,
+								   int_copy_constructor,
+								   int_destructor,
+								   client_copy_constructor,
+								   client_destructor);
 
 	return;
 }
@@ -185,8 +192,7 @@ void server_listen_to_client() {
 		int i;
 		int client_fd;
 		int fd_flag;
-		client * new_client = NULL;
-		long new_client_ptr = 0;
+		client new_client = NULL;
 		for (i = 0; i < num_of_client; i++) {
 			//If we got our listen socket back, we have a new connection
 			if (events[i].data.fd == SOCKET_FD) {
