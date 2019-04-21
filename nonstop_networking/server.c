@@ -31,7 +31,7 @@
 /* Client State Macros */
 #define READ_HEADER 0
 #define READ_SIZE 1
-#define READ_PUT 2
+#define READ_FILE 2
 #define WRITE_FILE 3
 #define WRITE_REPLY_OK 4
 #define WRITE_REPLY_ERROR 5
@@ -65,7 +65,7 @@ static dictionary * CLIENT_DIC;
 //Server Helpers
 void read_header(int client_fd, client* current_client);
 void read_size(int client_fd, client* current_client);
-void read_put(int client_fd, client* current_client);
+void read_file(int client_fd, client* current_client);
 void write_file(int client_fd, client* current_client);
 void write_reply_ok(int client_fd, client* current_client);
 void write_reply_error(int client_fd, client* current_client);
@@ -74,7 +74,7 @@ void setup_delete(int client_fd, client* current_client);
 void setup_list(int client_fd, client* current_client);
 void setup_get(int client_fd, client* current_client);
 void setup_put(int client_fd, client* current_client);
-void delete_file(char * filename, int i);
+void delete_file(char * filename);
 
 //Server Infrastructures
 void server_listen_to_client();
@@ -98,14 +98,13 @@ FILE * open_file(char * filename, char * flag) {
 	return fopen(path, flag);
 }
 
-void delete_file(char * filename, int i) {
+void delete_file(char * filename) {
 	char path[MAX_HEADER_SIZE];
 	memset(path, 0, MAX_HEADER_SIZE);
 	sprintf(path, "%s/%s", SERVER_DIR, filename);
 	if (unlink(path) != 0) {
 		perror("SERVER: unlink() failed!");
 	}
-	vector_erase(FILE_VECTOR, i);
 	return;
 }
 
@@ -129,7 +128,8 @@ void setup_delete(int client_fd, client* current_client) {
 		log_error(client_fd, current_client, err_no_such_file);
 		write_reply_error(client_fd, current_client);
 	} else {
-		delete_file(current_client->filename, i);
+		delete_file(current_client->filename);
+		vector_erase(FILE_VECTOR, i);
 		log_ok(client_fd, current_client);
 	}
 }
@@ -339,6 +339,54 @@ void write_file(int client_fd, client* current_client) {
 		total_byte_to_write -= current_byte_written;
 	}
 }
+
+void read_file(int client_fd, client* current_client) {
+	FILE * file = current_client->file;
+	size_t total_byte_read = ftell(file);
+	size_t total_byte_to_read = current_client->file_size - total_byte_read;
+	size_t current_byte_to_read = 0;
+	ssize_t current_byte_read = 0;
+	char line[MAX_R_W_SIZE];
+	int status = CONNECTED;
+	
+	while (total_byte_to_read > 0) {
+		memset(line, 0, MAX_R_W_SIZE);
+		current_byte_to_read = (total_byte_to_read < MAX_R_W_SIZE) ? total_byte_to_read : MAX_R_W_SIZE;
+		current_byte_read = server_read_all_from_socket(client_fd, line, current_byte_to_read, &status);
+		if (current_byte_read < 0 || status == CONNECTION_LOST) {
+			fclose(file);
+			delete_file(file);
+			log_error(client_fd, current_client, err_bad_file_size);
+			return;
+		}
+
+		fwrite(line, 1, total_byte_read, file);
+		
+		if (current_byte_read < current_byte_to_read) {
+			total_byte_read += current_byte_read;
+			total_byte_to_read -= current_byte_read;
+			break;
+		}
+		
+		total_byte_read += current_byte_read;
+		total_byte_to_read -= current_byte_read;
+	}
+	
+	if (total_byte_to_read <= 0) { //finished
+		fclose(file);
+		//Test if overflow
+		current_byte_read = server_read_all_from_socket(client_fd, line, MAX_R_W_SIZE, &status);
+		if (current_byte_read != 0) {
+			delete_file(file);
+			log_error(client_fd, current_client, err_bad_file_size);
+			return;
+		}
+		
+		//PUT is successful
+		vector_push_back(FILE_VECTOR, current_client->filename);
+		log_ok(client_fd, current_client);
+	}
+}
 		
 			
 void read_header(int client_fd, client* current_client) {
@@ -432,8 +480,8 @@ void dispatch_client(int client_fd) {
 		read_header(client_fd, current_client);
 	} else if (current_client->state == READ_SIZE) {
 		read_size(client_fd, current_client);
-	} else if (current_client->state == READ_PUT) {
-		read_put(client_fd, current_client);
+	} else if (current_client->state == READ_FILE) {
+		read_file(client_fd, current_client);
 	} else if (current_client->state == WRITE_FILE) {
 		write_file(client_fd, current_client);
 	} else if (current_client->state == WRITE_REPLY_OK) {
