@@ -17,6 +17,30 @@
 #define ACTION_PAUSED 1
 #define ACTION_COMPLETE 0
 
+ssize_t server_write_all_to_socket(int socket, char * buffer, size_t count) {
+	ssize_t total_byte_written = 0;
+	ssize_t current_byte_written = 0;
+	while (total_byte_written < (ssize_t) count) {
+		current_byte_written = write(socket, buffer + total_byte_written, count - total_byte_written);
+		if (current_byte_written <= 0) {
+			if (current_byte_written == -1 && errno == EINTR) { //retry
+				continue;
+			}
+			if (current_byte_written == -1 && errno != EINTR) { //bad things happened
+				return -1;
+			}
+			if (current_byte_written == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+				break;
+			}
+			if (current_byte_written == 0) {
+				break;
+			}
+		}
+		total_byte_written += current_byte_written;
+	}
+	return total_byte_written;
+}
+
 ssize_t server_read_line_from_socket(int socket, char * buffer, size_t count, int* status) {
 	ssize_t total_byte_read = 0;
 	ssize_t current_byte_read = 0;
