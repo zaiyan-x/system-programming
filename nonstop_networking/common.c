@@ -16,9 +16,32 @@
 /* Status Macros */
 #define ACTION_PAUSED 1
 #define ACTION_COMPLETE 0
+#define CONNECTED 0
+#define CONNECTION_LOST 1
 
 ssize_t server_read_all_from_socket(int socket, char * buffer, size_t count, int * status) {
-
+	ssize_t total_byte_read = 0;
+	ssize_t current_byte_read = 0;
+	while (total_byte_read < (ssize_t) count) {
+		current_byte_read = read(socket, buffer + total_byte_read, count - total_byte_read);
+		if (current_byte_read <= 0) {
+			if (current_byte_read == -1 && errno == EINTR) {
+				continue;
+			}
+			if (current_byte_read == -1 && errno != EINTR) {
+				return -1;
+			}
+			if (current_byte_read == 0) {
+				*status = CONNECTION_LOST;
+				break;
+			}
+			if (current_byte_read == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+				break;
+			}
+		}
+		total_byte_read += current_byte_read;
+	}
+	return total_byte_read;
 }
 
 ssize_t server_write_all_to_socket(int socket, char * buffer, size_t count, int * status) {
@@ -37,6 +60,7 @@ ssize_t server_write_all_to_socket(int socket, char * buffer, size_t count, int 
 				break;
 			}
 			if (current_byte_written == 0) {
+				*status = CONNECTION_LOST;
 				break;
 			}
 		}
