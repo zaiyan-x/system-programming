@@ -272,7 +272,24 @@ void log_error(int client_fd, client* current_client, const char* error_message)
 }
 			
 void read_size(int client_fd, client* current_client) {
+	int status = CONNECTED;
+	ssize_t total_byte_read = server_read_all_from_socket(client_fd, (char*) &(current_client->file_size), sizeof(size_t), status);
 	
+	if (total_byte_read < 0) { //something wrong with the response
+		log_error(client_fd, current_client, err_bad_request);
+		return;
+	}
+	
+	if (total_byte_read == sizeof(size_t)) {
+		current_client->state = READ_PUT;
+		current_client->file = open_file(current_client->filename, "w");
+		if (current_client->file == NULL) {
+			perror("SERVER: fopen() failed!");
+			exit(1);
+		}
+		return;
+	}
+	current_client->offset += total_byte_read;
 }
 			
 void read_header(int client_fd, client* current_client) {
