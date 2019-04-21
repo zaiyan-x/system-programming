@@ -8,6 +8,7 @@
 #include "dictionary.h"
 #include "format.h"
 
+#include <netdb.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -157,7 +158,6 @@ void setup_list(int client_fd, client* current_client) {
  * Primary function for GET
  */
 void setup_get(int client_fd, client* current_client) {
-	int i = 0;
 	int found = 0;
 	char * filename = NULL;
 	VECTOR_FOR_EACH(FILE_VECTOR, node, {
@@ -219,10 +219,10 @@ void read_header(int client_fd, client* current_client) {
 	char * buffer = current_client->header + current_client->offset;
 	int count = MAX_HEADER_SIZE - current_client->offset;
 	int status = ACTION_PAUSED;
-	int total_byte_read = server_read_line_from_socket(client_fd, buffer, count, status);
+	int total_byte_read = server_read_line_from_socket(client_fd, buffer, count, &status);
 	
 	if (total_byte_read == -1) { //Something bad happened
-		log_error(current_client, err_bad_request);
+		log_error(client_fd, current_client, err_bad_request);
 	}
 	
 	if (status == ACTION_PAUSED) {
@@ -297,8 +297,6 @@ void dispatch_client(int client_fd) {
 		write_reply_ok(client_fd, current_client);
 	} else if (current_client->state == WRITE_REPLY_ERROR) {
 		write_reply_error(client_fd, current_client);
-	} else if (current_client->state == WRITE_REPLY_ERROR_MESSAGE) {
-		write_reply_error_message(client_fd, current_client);
 	} else if (current_client->state == WRITE_GET) {
 		write_get(client_fd, current_client);
 	} else if (current_client->state == WRITE_SIZE) {
