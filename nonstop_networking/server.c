@@ -6,7 +6,9 @@
 #include "common.h"
 #include "vector.h"
 #include "dictionary.h"
+#include "format.h"
 
+#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -37,6 +39,17 @@
 /* Status Macros */
 #define ACTION_PAUSED 1
 #define ACTION_COMPLETE 0
+/* Client Information Struct */
+typedef struct client_ {
+	int state;
+	verb client_verb;
+	char filename[MAX_FILENAME_SIZE];
+	int offset;
+	const char * error_message;
+	char header[MAX_HEADER_SIZE];
+	FILE * file;
+	size_t file_size;
+} client;
 
 /* Global Server Variables */
 static char* SERVER_DIR;
@@ -59,7 +72,7 @@ void setup_delete(int client_fd, client* current_client);
 void setup_list(int client_fd, client* current_client);
 void setup_get(int client_fd, client* current_client);
 void setup_put(int client_fd, client* current_client);
-void delete_file(char * filename);
+void delete_file(char * filename, int i);
 
 //Server Infrastructures
 void server_listen_to_client();
@@ -73,19 +86,6 @@ void log_error(int client_fd, client* current_client, const char* error_message)
 void log_ok(int client_fd, client* current_client);
 void reset_epoll_mode_to_write(int client_fd);
 FILE * open_file(char * filename, char * flag);
-
-/* Client Information Struct */
-typedef struct client_ {
-	int state;
-	verb client_verb;
-	char filename[MAX_FILENAME_SIZE];
-	int offset;
-	const char * error_message;
-	char header[MAX_HEADER_SIZE];
-	FILE * file;
-	size_t file_size;
-} client;
-
 
 
 /* Main Part */
@@ -103,7 +103,7 @@ void delete_file(char * filename, int i) {
 	if (unlink(path) != 0) {
 		perror("SERVER: unlink() failed!");
 	}
-	vector_erase(FILE_DIR, i);
+	vector_erase(FILE_VECTOR, i);
 	return;
 }
 
@@ -124,7 +124,7 @@ void setup_delete(int client_fd, client* current_client) {
 	});
 	
 	if (found == 0) {
-		log_error(current_client, err_no_such_file);
+		log_error(client_fd, current_client, err_no_such_file);
 		write_reply_error(client_fd, current_client);
 	} else {
 		delete_file(current_client->filename, i);
@@ -147,7 +147,7 @@ void setup_list(int client_fd, client* current_client) {
 		total_file_size += current_file_size + 1;
 		fwrite(current_filename, 1, current_file_size, list_temp_file);
 		fwrite("\n", 1, 1, list_temp_file);
-	}
+	});
 	current_client->file_size = total_file_size - 1;
 	log_ok(client_fd, current_client);
 }
