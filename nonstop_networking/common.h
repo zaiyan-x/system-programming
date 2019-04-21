@@ -19,6 +19,8 @@ ssize_t client_read_line_from_socket(int socket, char * buffer, size_t count);
 ssize_t client_read_all_from_socket(int socket, char * buffer, size_t count);
 size_t handle_return_value(ssize_t byte_executed, size_t byte_to_execute, size_t total_byte_to_execute);
 
+ssize_t server_read_line_from_socket(int socket, char * buffer, size_t count);
+
 //Helper functions
 char** parse_args(int argc, char** argv);
 verb check_args(char** args);
