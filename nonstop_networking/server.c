@@ -229,15 +229,15 @@ void write_reply_error(int client_fd, client* current_client) {
 	int status = CONNECTED;
 	ssize_t total_byte_written = server_write_all_to_socket(client_fd, buffer, count, &status);
 	if (total_byte_written == -1 ) { //Something bad happened
-		shutdown_client(client_fd, current_client);
+		shutdown_client(client_fd);
 		return;
 	}
 	if ((size_t)total_byte_written == count) {
-		shutdown_client(client_fd, current_client);
+		shutdown_client(client_fd);
 		return;
 	}
 	if (status == CONNECTION_LOST) {
-		shutdown_client(client_fd, current_client);
+		shutdown_client(client_fd);
 		return;
 	}
 	current_client->offset += total_byte_written;
