@@ -1,0 +1,138 @@
+sleep 50 &
+sleep 50 &
+sleep 50 &
+man kill &
+man kill &
+ps
+dd if=/dev/zero of=/dev/null &
+dd if=/dev/zero of=/dev/null &
+man kill &
+sleep 89 &
+ps
+man signal
+man signal&
+man signal & && ps
+man signal & && man signal &
+sleep 39 &
+ps
+stop 21705
+ps
+sleep 10 && ps
+sleep 10 &
+ps
+stop 21707
+kill 21707
+man &
+ps
+ps
+pfd 21713
+man kill &
+dd if=/dev/zero of=/dev/null &
+ps
+ps
+ps
+sleep 39 &
+sleep 39 &
+sleep 39 &
+sleep 39 &
+sleep 39 &
+dd if=/dev/zero of=/dev/null &
+dd if=/dev/zero of=/dev/null &
+dd if=/dev/zero of=/dev/null &
+ps
+kill 14955
+cont 14955
+cont 14955
+ps
+kill 14953
+ps
+dd if=/dev/zero of=/dev/null &
+sleep 39 &
+sleep 39 &
+sleep 39 &
+sleep 39 &
+sleep 39 &
+ps
+ps
+s
+ps
+ps
+sl
+sl
+telnet
+ps
+ps
+dd if=/dev/zero of=/dev/null &
+sleep 39 &
+sleep 39 &
+sleep 39 &
+sleep 39 &
+ps
+ps
+ps
+ps
+ps
+ps
+ps
+ps
+ps
+ps
+ps
+sleep 1000 &
+sleep 1000 &
+sleep 1000 &
+sleep 1000 &
+sleep 1000 &
+sleep 1000 &
+ps
+ps
+ps
+dd if=/dev/zero of=/dev/null &
+dd if=/dev/zero of=/dev/null &
+dd if=/dev/zero of=/dev/null &
+dd if=/dev/zero of=/dev/null &
+sleep 1000 &
+ps
+ps
+ps
+ps
+ps
+ps
+ps
+ps
+ps
+ps
+ps
+ps
+ps
+ps
+ps
+ps
+ps
+dd if=/dev/zero of=/dev/null &
+dd if=/dev/zero of=/dev/null &
+dd if=/dev/zero of=/dev/null &
+dd if=/dev/zero of=/dev/null &
+sleep 1000 &
+sleep 1000 &
+sleep 1000 &
+sleep 1000 &
+ps
+ps
+ps
+ps
+ps
+ps
+ps
+sleep 40 &
+ps
+ps
+ps
+ps
+ps
+ps
+ps
+dd if=/dev/zero of=/dev/null &
+dd if=/dev/zero of=/dev/null &
+sleep 40 &
+ps
