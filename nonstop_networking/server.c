@@ -21,7 +21,7 @@
 
 /* Server Macros */
 #define MAX_CLIENTS 32
-#define MAX_EVENTS 32
+#define MAX_EVENTS 64
 #define MAX_HEADER_SIZE 1024
 #define MAX_R_W_SIZE 1024
 #define MAX_REPLY_SIZE 1024
@@ -190,11 +190,8 @@ void setup_get(int client_fd, client* current_client) {
 void setup_put(int client_fd, client* current_client) {
 	current_client->state = READ_SIZE;
 	current_client->offset = 0;
-	current_client->file = open_file(current_client->filename, "w");
-	if (current_client->file == NULL) {
-		perror("SERVER: fopen() failed!");
-		shutdown_client(client_fd);
-	}
+	current_client->file_size = 0;
+	read_size(client_fd, current_client);
 }
 
 void write_reply_ok(int client_fd, client* current_client) {
@@ -276,19 +273,16 @@ void read_size(int client_fd, client* current_client) {
 	char * buffer = (char*) (&(current_client->file_size)) + current_client->offset;
 	size_t count = sizeof(size_t) - current_client->offset;
 	ssize_t total_byte_read = server_read_all_from_socket(client_fd, buffer, count, &status);
-	
-	if (total_byte_read < 0) { //something wrong with the response
+
+	if (total_byte_read < 0 || status == CONNECTION_LOST) { //something wrong with the response
 		log_error(client_fd, current_client, err_bad_request);
 		return;
 	}
 	
 	if ((size_t)total_byte_read == count) {
-		current_client->state = READ_PUT;
+		current_client->state = READ_FILE;
 		current_client->file = open_file(current_client->filename, "w");
-		if (current_client->file == NULL) {
-			perror("SERVER: fopen() failed!");
-			exit(1);
-		}
+		current_client->offset = 0;
 		return;
 	}
 	current_client->offset += total_byte_read;
@@ -355,14 +349,14 @@ void read_file(int client_fd, client* current_client) {
 		current_byte_read = server_read_all_from_socket(client_fd, line, current_byte_to_read, &status);
 		if (current_byte_read < 0 || status == CONNECTION_LOST) {
 			fclose(file);
-			delete_file(file);
+			delete_file(current_client->filename);
 			log_error(client_fd, current_client, err_bad_file_size);
 			return;
 		}
 
 		fwrite(line, 1, total_byte_read, file);
 		
-		if (current_byte_read < current_byte_to_read) {
+		if ((size_t)current_byte_read < current_byte_to_read) {
 			total_byte_read += current_byte_read;
 			total_byte_to_read -= current_byte_read;
 			break;
@@ -377,7 +371,7 @@ void read_file(int client_fd, client* current_client) {
 		//Test if overflow
 		current_byte_read = server_read_all_from_socket(client_fd, line, MAX_R_W_SIZE, &status);
 		if (current_byte_read != 0) {
-			delete_file(file);
+			delete_file(current_client->filename);
 			log_error(client_fd, current_client, err_bad_file_size);
 			return;
 		}
@@ -394,7 +388,7 @@ void read_header(int client_fd, client* current_client) {
 	int count = MAX_HEADER_SIZE - current_client->offset;
 	int status = ACTION_PAUSED;
 	ssize_t total_byte_read = server_read_line_from_socket(client_fd, buffer, count, &status);
-	
+
 	if (total_byte_read == -1) { //Something bad happened
 		log_error(client_fd, current_client, err_bad_request);
 		return;
@@ -408,7 +402,7 @@ void read_header(int client_fd, client* current_client) {
 		memset(verb_string, 0, MAX_VERB_SIZE);
 		
 		int retval = sscanf(current_client->header, "%s %s", verb_string, current_client->filename);
-		
+	
 		if (retval == 0) { //Bad format
 			log_error(client_fd, current_client, err_bad_request);
 			return;
@@ -591,7 +585,7 @@ void server_listen_to_client() {
 		//Loop through all clients
 		int i;
 		int client_fd;
-		int fd_flag;
+		int fd_flag = 0;
 		client new_client;
 		for (i = 0; i < num_of_client; i++) {
 			//If we got our listen socket back, we have a new connection
@@ -604,6 +598,7 @@ void server_listen_to_client() {
 				}
 
 				//Set the client_fd to NON_BLOCKING
+				fd_flag = 0;
 				fd_flag = fcntl(client_fd, F_GETFL, 0);
 				fcntl(client_fd, F_SETFL, fd_flag | O_NONBLOCK);
 
