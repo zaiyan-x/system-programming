@@ -152,6 +152,7 @@ void setup_list(int client_fd, client* current_client) {
 		fwrite("\n", 1, 1, list_temp_file);
 	});
 	current_client->file_size = total_file_size - 1;
+	fseek(list_temp_file, 0, SEEK_SET);
 	log_ok(client_fd, current_client);
 }
 			
@@ -191,7 +192,6 @@ void setup_put(int client_fd, client* current_client) {
 	current_client->state = READ_SIZE;
 	current_client->offset = 0;
 	current_client->file_size = 0;
-	read_size(client_fd, current_client);
 }
 
 void write_reply_ok(int client_fd, client* current_client) {
@@ -244,7 +244,7 @@ void write_reply_error(int client_fd, client* current_client) {
 }
 
 void reset_epoll_mode_to_write(int client_fd) {
-	struct epoll_event ev;
+	struct epoll_event ev = {};
 	ev.events = EPOLLOUT;
 	ev.data.fd = client_fd;
 	epoll_ctl(EPOLL_FD, EPOLL_CTL_MOD, client_fd, &ev);
@@ -273,7 +273,6 @@ void read_size(int client_fd, client* current_client) {
 	char * buffer = (char*) (&(current_client->file_size)) + current_client->offset;
 	size_t count = sizeof(size_t) - current_client->offset;
 	ssize_t total_byte_read = server_read_all_from_socket(client_fd, buffer, count, &status);
-
 	if (total_byte_read < 0 || status == CONNECTION_LOST) { //something wrong with the response
 		log_error(client_fd, current_client, err_bad_request);
 		return;
@@ -293,7 +292,6 @@ void write_size(int client_fd, client* current_client) {
 	char * buffer = (char*) (&(current_client->file_size)) + current_client->offset;
 	size_t count = sizeof(size_t) - current_client->offset;
 	ssize_t total_byte_written = server_write_all_to_socket(client_fd, buffer, count, &status);
-	
 	if (total_byte_written < 0) {
 		shutdown_client(client_fd);
 		return;
@@ -332,6 +330,12 @@ void write_file(int client_fd, client* current_client) {
 		total_byte_written += current_byte_written;
 		total_byte_to_write -= current_byte_written;
 	}
+
+	if (total_byte_to_write == 0) {
+		fclose(file);
+		shutdown_client(client_fd);
+		return;
+	}
 }
 
 void read_file(int client_fd, client* current_client) {
@@ -342,7 +346,9 @@ void read_file(int client_fd, client* current_client) {
 	ssize_t current_byte_read = 0;
 	char line[MAX_R_W_SIZE];
 	int status = CONNECTED;
-	
+
+
+	fprintf(stderr, "in read_file, total_byte_read is %zu, total_byte_to_read is %zu\n", total_byte_read, total_byte_to_read);
 	while (total_byte_to_read > 0) {
 		memset(line, 0, MAX_R_W_SIZE);
 		current_byte_to_read = (total_byte_to_read < MAX_R_W_SIZE) ? total_byte_to_read : MAX_R_W_SIZE;
@@ -354,7 +360,7 @@ void read_file(int client_fd, client* current_client) {
 			return;
 		}
 
-		fwrite(line, 1, total_byte_read, file);
+		fwrite(line, 1, current_byte_read, file);
 		
 		if ((size_t)current_byte_read < current_byte_to_read) {
 			total_byte_read += current_byte_read;
