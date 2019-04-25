@@ -9,7 +9,7 @@ assignments:
   charming_chatroom: false
   critical_concurrency: false
   deadlock_demolition: false
-  extreme_edge_cases: false
+  extreme_edge_cases: true
   finding_filesystems: false
   ideal_indirection: false
   luscious_locks: false

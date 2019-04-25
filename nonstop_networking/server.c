@@ -20,8 +20,8 @@
 #include <sys/types.h>
 
 /* Server Macros */
-#define MAX_CLIENTS 32
-#define MAX_EVENTS 64
+#define MAX_CLIENTS 128
+#define MAX_EVENTS 129
 #define MAX_HEADER_SIZE 1024
 #define MAX_R_W_SIZE 1024
 #define MAX_REPLY_SIZE 1024
@@ -36,20 +36,22 @@
 #define WRITE_REPLY_OK 4
 #define WRITE_REPLY_ERROR 5
 #define WRITE_SIZE 6
+#define WRITE_LIST 7
 
 /* Status Macros */
 #define ACTION_PAUSED 1
 #define ACTION_COMPLETE 0
-#define CONNECTED 0
-#define CONNECTION_LOST 1
+#define PREMATURE_END -2
+
 /* Client Information Struct */
 typedef struct client_ {
 	int state;
 	verb client_verb;
 	char filename[MAX_FILENAME_SIZE];
-	int offset;
+	size_t offset;
 	char reply[MAX_REPLY_SIZE];
 	char header[MAX_HEADER_SIZE];
+	char * file_list;
 	FILE * file;
 	size_t file_size;
 } client;
@@ -70,6 +72,7 @@ void write_file(int client_fd, client* current_client);
 void write_reply_ok(int client_fd, client* current_client);
 void write_reply_error(int client_fd, client* current_client);
 void write_size(int client_fd, client* current_client);
+void write_list(int client_fd, client* current_client);
 void setup_delete(int client_fd, client* current_client);
 void setup_list(int client_fd, client* current_client);
 void setup_get(int client_fd, client* current_client);
@@ -138,21 +141,22 @@ void setup_delete(int client_fd, client* current_client) {
  * Primary function for LIST
  */
 void setup_list(int client_fd, client* current_client) {
-	size_t total_file_size = 0;
-	size_t current_file_size = 0;
-	FILE * list_temp_file = tmpfile();	
-	current_client->file = list_temp_file;
-	char * current_filename = NULL;
+	size_t file_count = vector_size(FILE_VECTOR);
+	current_client->file_list = malloc(MAX_FILENAME_SIZE * file_count);
+	memset(current_client->file_list, 0, MAX_FILENAME_SIZE * file_count);
+	char * buffer = current_client->file_list;
 	
+	//Utilities for Loop
+	char * current_filename = NULL;
 	VECTOR_FOR_EACH(FILE_VECTOR, node, {
 		current_filename = (char*) node;
-		current_file_size = strlen(current_filename);
-		total_file_size += current_file_size + 1;
-		fwrite(current_filename, 1, current_file_size, list_temp_file);
-		fwrite("\n", 1, 1, list_temp_file);
+		sprintf(buffer, "%s", current_filename);
+		sprintf(buffer, "\n");
+		buffer += strlen(current_filename) + 1;
 	});
-	current_client->file_size = total_file_size - 1;
-	fseek(list_temp_file, 0, SEEK_SET);
+	size_t total_filename_size = strlen(current_client->file_list) - 1;
+	current_client->file_list[total_filename_size] = 0;
+	current_client->file_size = total_filename_size;
 	log_ok(client_fd, current_client);
 }
 			
@@ -197,9 +201,8 @@ void setup_put(int client_fd, client* current_client) {
 void write_reply_ok(int client_fd, client* current_client) {
 	char * buffer = current_client->reply + current_client->offset;
 	size_t count = strlen(buffer);
-	int status = CONNECTED;
-	ssize_t total_byte_written = server_write_all_to_socket(client_fd, buffer, count, &status);
-	if (total_byte_written == -1) { //Something bad happened
+	ssize_t total_byte_written = server_write_all_to_socket(client_fd, buffer, count);
+	if (total_byte_written == -1 || total_byte_written == PREMATURE_END) { //Something bad happened
 		shutdown_client(client_fd);
 		return;
 	}
@@ -207,18 +210,17 @@ void write_reply_ok(int client_fd, client* current_client) {
 		if (current_client->client_verb == PUT || current_client->client_verb == DELETE) {
 			shutdown_client(client_fd);
 			return;
-		} else if (current_client->client_verb == LIST || current_client->client_verb == GET) {
+		} else if (current_client->client_verb == GET) {
 			current_client->state = WRITE_SIZE;
 			current_client->offset = 0;
 			return;
+		} else if (current_client->client_verb == LIST) {
+			current_client->state = WRITE_SIZE;
+			current_client->offset = 0;
 		} else {
 			perror("SERVER: abnormal VERB found in struct!");
 			return;
 		}
-	}
-	if (status == CONNECTION_LOST) {
-		shutdown_client(client_fd);
-		return;
 	}
 	current_client->offset += total_byte_written;
 }
@@ -226,9 +228,8 @@ void write_reply_ok(int client_fd, client* current_client) {
 void write_reply_error(int client_fd, client* current_client) {
 	char * buffer = current_client->reply + current_client->offset;
 	size_t count = strlen(buffer);
-	int status = CONNECTED;
-	ssize_t total_byte_written = server_write_all_to_socket(client_fd, buffer, count, &status);
-	if (total_byte_written == -1 ) { //Something bad happened
+	ssize_t total_byte_written = server_write_all_to_socket(client_fd, buffer, count);
+	if (total_byte_written == -1 || total_byte_written == PREMATURE_END) { //Something bad happened
 		shutdown_client(client_fd);
 		return;
 	}
@@ -236,15 +237,12 @@ void write_reply_error(int client_fd, client* current_client) {
 		shutdown_client(client_fd);
 		return;
 	}
-	if (status == CONNECTION_LOST) {
-		shutdown_client(client_fd);
-		return;
-	}
 	current_client->offset += total_byte_written;
 }
 
 void reset_epoll_mode_to_write(int client_fd) {
-	struct epoll_event ev = {};
+	struct epoll_event ev;
+	memset(&ev, 0, sizeof(struct epoll_event));
 	ev.events = EPOLLOUT;
 	ev.data.fd = client_fd;
 	epoll_ctl(EPOLL_FD, EPOLL_CTL_MOD, client_fd, &ev);
@@ -269,11 +267,10 @@ void log_error(int client_fd, client* current_client, const char* error_message)
 }
 			
 void read_size(int client_fd, client* current_client) {
-	int status = CONNECTED;
 	char * buffer = (char*) (&(current_client->file_size)) + current_client->offset;
 	size_t count = sizeof(size_t) - current_client->offset;
-	ssize_t total_byte_read = server_read_all_from_socket(client_fd, buffer, count, &status);
-	if (total_byte_read < 0 || status == CONNECTION_LOST) { //something wrong with the response
+	ssize_t total_byte_read = server_read_all_from_socket(client_fd, buffer, count);
+	if (total_byte_read < 0) { //something wrong with the response
 		log_error(client_fd, current_client, err_bad_request);
 		return;
 	}
@@ -288,16 +285,19 @@ void read_size(int client_fd, client* current_client) {
 }
 
 void write_size(int client_fd, client* current_client) {
-	int status = CONNECTED;
 	char * buffer = (char*) (&(current_client->file_size)) + current_client->offset;
 	size_t count = sizeof(size_t) - current_client->offset;
-	ssize_t total_byte_written = server_write_all_to_socket(client_fd, buffer, count, &status);
+	ssize_t total_byte_written = server_write_all_to_socket(client_fd, buffer, count);
 	if (total_byte_written < 0) {
 		shutdown_client(client_fd);
 		return;
 	}
 	if ((size_t)total_byte_written == count) {
-		current_client->state = WRITE_FILE;
+		if (current_client->client_verb == GET) {
+			current_client->state = WRITE_FILE;
+		} else if (current_client->client_verb == LIST) {
+			current_client->state = WRITE_LIST;
+		}
 		current_client->offset = 0;
 		return;
 	}
@@ -311,25 +311,26 @@ void write_file(int client_fd, client* current_client) {
 	size_t current_byte_to_write = 0;
 	ssize_t current_byte_written = 0;
 	char line[MAX_R_W_SIZE];
-	int status = CONNECTED;
 	
 	while (total_byte_to_write > 0) {
 		memset(line, 0, MAX_R_W_SIZE);
 		current_byte_to_write = (total_byte_to_write < MAX_R_W_SIZE) ? total_byte_to_write : MAX_R_W_SIZE;
 		fread(line, 1, current_byte_to_write, file);
-		current_byte_written = server_write_all_to_socket(client_fd, line, current_byte_to_write, &status);
-		if (current_byte_written < 0 || status == CONNECTION_LOST) {
+		current_byte_written = server_write_all_to_socket(client_fd, line, current_byte_to_write);
+		if (current_byte_written < 0) {
 			fclose(file);
 			shutdown_client(client_fd);
 			return;
 		}
 		if ((size_t)current_byte_written < current_byte_to_write) { //rewind
 			fseek(file, current_byte_written - current_byte_to_write, SEEK_CUR);
+			total_byte_written += current_byte_written;
 			break;
 		}
 		total_byte_written += current_byte_written;
 		total_byte_to_write -= current_byte_written;
 	}
+	current_client->offset += total_byte_written;
 
 	if (total_byte_to_write == 0) {
 		fclose(file);
@@ -338,6 +339,38 @@ void write_file(int client_fd, client* current_client) {
 	}
 }
 
+void write_list(int client_fd, client* current_client) {
+	size_t total_byte_written = current_client->offset;
+	size_t total_byte_to_write = current_client->file_size - total_byte_written;
+	size_t current_byte_to_write = 0;
+	ssize_t current_byte_written = 0;
+	char * buffer = current_client->file_list + total_byte_written;
+
+	while (total_byte_to_write > 0) {
+		current_byte_to_write = (total_byte_to_write < MAX_R_W_SIZE) ? total_byte_to_write : MAX_R_W_SIZE;
+		current_byte_written = server_write_all_to_socket(client_fd, buffer, current_byte_to_write);
+		if (current_byte_written < 0) {
+			free(current_client->file_list);
+			current_client->file_list = NULL;
+			shutdown_client(client_fd);
+			return;
+		}
+		if (current_byte_to_write == (size_t) current_byte_written) {
+			total_byte_written += current_byte_written;
+			total_byte_to_write -= current_byte_written;
+		} else {
+			total_byte_written += current_byte_written;
+			break;
+		}
+	}
+	current_client->offset += total_byte_written;
+	if (total_byte_to_write == 0) {
+		shutdown_client(client_fd);
+		return;
+	}
+}
+		
+
 void read_file(int client_fd, client* current_client) {
 	FILE * file = current_client->file;
 	size_t total_byte_read = ftell(file);
@@ -345,15 +378,14 @@ void read_file(int client_fd, client* current_client) {
 	size_t current_byte_to_read = 0;
 	ssize_t current_byte_read = 0;
 	char line[MAX_R_W_SIZE];
-	int status = CONNECTED;
 
 
 	fprintf(stderr, "in read_file, total_byte_read is %zu, total_byte_to_read is %zu\n", total_byte_read, total_byte_to_read);
 	while (total_byte_to_read > 0) {
 		memset(line, 0, MAX_R_W_SIZE);
 		current_byte_to_read = (total_byte_to_read < MAX_R_W_SIZE) ? total_byte_to_read : MAX_R_W_SIZE;
-		current_byte_read = server_read_all_from_socket(client_fd, line, current_byte_to_read, &status);
-		if (current_byte_read < 0 || status == CONNECTION_LOST) {
+		current_byte_read = server_read_all_from_socket(client_fd, line, current_byte_to_read);
+		if (current_byte_read < 0) {
 			fclose(file);
 			delete_file(current_client->filename);
 			log_error(client_fd, current_client, err_bad_file_size);
@@ -375,7 +407,7 @@ void read_file(int client_fd, client* current_client) {
 	if (total_byte_to_read <= 0) { //finished
 		fclose(file);
 		//Test if overflow
-		current_byte_read = server_read_all_from_socket(client_fd, line, MAX_R_W_SIZE, &status);
+		current_byte_read = server_read_all_from_socket(client_fd, line, MAX_R_W_SIZE);
 		if (current_byte_read != 0) {
 			delete_file(current_client->filename);
 			log_error(client_fd, current_client, err_bad_file_size);
@@ -391,12 +423,17 @@ void read_file(int client_fd, client* current_client) {
 			
 void read_header(int client_fd, client* current_client) {
 	char * buffer = current_client->header + current_client->offset;
-	int count = MAX_HEADER_SIZE - current_client->offset;
+	size_t count = MAX_HEADER_SIZE - current_client->offset;
 	int status = ACTION_PAUSED;
 	ssize_t total_byte_read = server_read_line_from_socket(client_fd, buffer, count, &status);
 
 	if (total_byte_read == -1) { //Something bad happened
 		log_error(client_fd, current_client, err_bad_request);
+		return;
+	}
+
+	if (total_byte_read == PREMATURE_END) {
+		shutdown_client(client_fd);
 		return;
 	}
 	
@@ -440,6 +477,11 @@ void read_header(int client_fd, client* current_client) {
 	}	
 }
 void shutdown_server() {
+	char * filename = NULL;
+	VECTOR_FOR_EACH(FILE_VECTOR, node, {
+		filename = (char*) node;
+		delete_file(filename);
+	});
 	rmdir(SERVER_DIR);
 	vector_destroy(FILE_VECTOR);
 	dictionary_destroy(CLIENT_DIC);
@@ -490,6 +532,8 @@ void dispatch_client(int client_fd) {
 		write_reply_error(client_fd, current_client);
 	} else if (current_client->state == WRITE_SIZE) {
 		write_size(client_fd, current_client);
+	} else if (current_client->state == WRITE_LIST) {
+		write_list(client_fd, current_client);
 	} else {
 		perror("SERVER: unknown state happened!");
 	}
@@ -609,6 +653,7 @@ void server_listen_to_client() {
 				fcntl(client_fd, F_SETFL, fd_flag | O_NONBLOCK);
 
 				//Append new client to epoll
+				memset(&ev, 0, sizeof(struct epoll_event));
 				ev.events = EPOLLIN;
 				ev.data.fd = client_fd;
 				if (epoll_ctl(EPOLL_FD, EPOLL_CTL_ADD, client_fd, &ev) == -1) {

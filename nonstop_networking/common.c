@@ -18,8 +18,9 @@
 #define ACTION_COMPLETE 0
 #define CONNECTED 0
 #define CONNECTION_LOST 1
+#define PREMATURE_END -2
 
-ssize_t server_read_all_from_socket(int socket, char * buffer, size_t count, int * status) {
+ssize_t server_read_all_from_socket(int socket, char * buffer, size_t count) {
 	ssize_t total_byte_read = 0;
 	ssize_t current_byte_read = 0;
 	while (total_byte_read < (ssize_t) count) {
@@ -32,8 +33,7 @@ ssize_t server_read_all_from_socket(int socket, char * buffer, size_t count, int
 				return -1;
 			}
 			if (current_byte_read == 0) {
-				*status = CONNECTION_LOST;
-				break;
+				return PREMATURE_END;
 			}
 			if (current_byte_read == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
 				break;
@@ -44,7 +44,7 @@ ssize_t server_read_all_from_socket(int socket, char * buffer, size_t count, int
 	return total_byte_read;
 }
 
-ssize_t server_write_all_to_socket(int socket, char * buffer, size_t count, int * status) {
+ssize_t server_write_all_to_socket(int socket, char * buffer, size_t count) {
 	ssize_t total_byte_written = 0;
 	ssize_t current_byte_written = 0;
 	while (total_byte_written < (ssize_t) count) {
@@ -60,8 +60,7 @@ ssize_t server_write_all_to_socket(int socket, char * buffer, size_t count, int 
 				break;
 			}
 			if (current_byte_written == 0) {
-				*status = CONNECTION_LOST;
-				break;
+				return PREMATURE_END;
 			}
 		}
 		total_byte_written += current_byte_written;
@@ -85,7 +84,7 @@ ssize_t server_read_line_from_socket(int socket, char * buffer, size_t count, in
 				return -1;
 			}
 			if (current_byte_read == 0) { //end prematurely
-				return -1;
+				return PREMATURE_END;
 			}
 		}
 		if (buffer[total_byte_read] == '\n') {
@@ -95,7 +94,7 @@ ssize_t server_read_line_from_socket(int socket, char * buffer, size_t count, in
 			break;
 		}
 		total_byte_read += current_byte_read;
-		if (total_byte_read == (ssize_t) count) {
+		if ((size_t) total_byte_read == count) {
 			return -1;
 		}
 	}
