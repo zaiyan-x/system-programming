@@ -23,7 +23,7 @@
 #define MAX_CLIENTS 128
 #define MAX_EVENTS 129
 #define MAX_HEADER_SIZE 1024
-#define MAX_R_W_SIZE 1024
+#define MAX_R_W_SIZE 4096
 #define MAX_REPLY_SIZE 1024
 #define MAX_FILENAME_SIZE 256
 #define MAX_VERB_SIZE 8
@@ -144,17 +144,26 @@ void setup_delete(int client_fd, client* current_client) {
  */
 void setup_list(int client_fd, client* current_client) {
 	size_t file_count = vector_size(FILE_VECTOR);
+	if (file_count == 0) {
+		current_client->file_size = 0;
+		current_client->file_list = NULL;
+		log_ok(client_fd, current_client);
+		return;
+	}
 	current_client->file_list = malloc(MAX_FILENAME_SIZE * file_count);
-	memset(current_client->file_list, 0, MAX_FILENAME_SIZE * file_count);
-	char * buffer = current_client->file_list;
+	char* buffer = current_client->file_list;
+	memset(buffer, 0, MAX_FILENAME_SIZE * file_count);
 	
 	//Utilities for Loop
 	char * current_filename = NULL;
+	size_t current_filename_size = 0;
 	VECTOR_FOR_EACH(FILE_VECTOR, node, {
 		current_filename = (char*) node;
-		sprintf(buffer, "%s", current_filename);
-		sprintf(buffer, "\n");
-		buffer += strlen(current_filename) + 1;
+		current_filename_size = strlen(current_filename);
+		strncpy(buffer, current_filename, current_filename_size);
+		buffer += current_filename_size;
+		strncpy(buffer, "\n", 1);
+		buffer += 1;
 	});
 	size_t total_filename_size = strlen(current_client->file_list) - 1;
 	current_client->file_list[total_filename_size] = 0;
@@ -219,6 +228,7 @@ void write_reply_ok(int client_fd, client* current_client) {
 		} else if (current_client->client_verb == LIST) {
 			current_client->state = WRITE_SIZE;
 			current_client->offset = 0;
+			return;
 		} else {
 			perror("SERVER: abnormal VERB found in struct!");
 			return;
@@ -357,19 +367,19 @@ void write_list(int client_fd, client* current_client) {
 			shutdown_client(client_fd);
 			return;
 		}
-		if (current_byte_to_write == (size_t) current_byte_written) {
-			total_byte_written += current_byte_written;
-			total_byte_to_write -= current_byte_written;
-		} else {
-			total_byte_written += current_byte_written;
+		total_byte_written += current_byte_written;
+		total_byte_to_write -= current_byte_written;
+		if ((size_t)current_byte_written < current_byte_to_write) {
 			break;
 		}
 	}
-	current_client->offset += total_byte_written;
-	if (total_byte_to_write == 0) {
+	if (total_byte_to_write <= 0) {
+		free(current_client->file_list);
+		current_client->file_list = NULL;
 		shutdown_client(client_fd);
 		return;
 	}
+	current_client->offset += total_byte_written;
 }
 		
 
@@ -379,16 +389,19 @@ void read_file(int client_fd, client* current_client) {
 	size_t total_byte_to_read = current_client->file_size - total_byte_read;
 	size_t current_byte_to_read = 0;
 	ssize_t current_byte_read = 0;
+	size_t current_byte_written = 0;
 	char line[MAX_R_W_SIZE];
-
+	memset(line, 0, MAX_R_W_SIZE);
 
 	while (total_byte_to_read > 0) {
 		memset(line, 0, MAX_R_W_SIZE);
 		current_byte_to_read = (total_byte_to_read < MAX_R_W_SIZE) ? total_byte_to_read : MAX_R_W_SIZE;
 		current_byte_read = server_read_all_from_socket(client_fd, line, current_byte_to_read);
 		if (current_byte_read == CLIENT_ERROR) {
+			perror("CLIENT_ERROR");
 			fclose(file);
 			delete_file(current_client->filename);
+			shutdown_client(client_fd);
 			return;
 		} else if (current_byte_read == PREMATURE_END) {
 			fclose(file);
@@ -397,8 +410,11 @@ void read_file(int client_fd, client* current_client) {
 			return;
 		}
 
-		fwrite(line, 1, current_byte_read, file);
-	
+		current_byte_written = fwrite(line, 1, current_byte_read, file);
+		if (current_byte_written != (size_t) current_byte_read) {
+			perror("WTF IS GOING ON");
+		}
+
 		total_byte_read += current_byte_read;
 		total_byte_to_read -= current_byte_read;
 
@@ -489,8 +505,10 @@ void shutdown_server() {
 	});
 	rmdir(SERVER_DIR);
 	vector_destroy(FILE_VECTOR);
+	FILE_VECTOR = NULL;
 	dictionary_destroy(CLIENT_DIC);
 	close(EPOLL_FD);
+	exit(0);
 }
 
 void shutdown_client(int client_fd) {
@@ -554,7 +572,7 @@ void setup_server(char * port) {
 		perror("SERVER: sigaction() failed!");
 		exit(1);
 	}
-	
+
 	//Setup temporary directory
 	char template[] = "XXXXXX";
 	char* directory = mkdtemp(template);
@@ -688,9 +706,6 @@ int main(int argc, char **argv) {
 		print_server_usage();
 		exit(1);
 	}
-	//Setup file vector
-	FILE_VECTOR = string_vector_create();
-
 	//Setup server
 	setup_server(argv[1]);
 

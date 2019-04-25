@@ -30,9 +30,12 @@ ssize_t server_read_all_from_socket(int socket, char * buffer, size_t count) {
 				continue;
 			}
 			if (current_byte_read == -1 && errno != EINTR) {
+				perror("FUCKED UP");
+				perror(strerror(errno));
 				return -1;
 			}
 			if (current_byte_read == 0) {
+				perror("PREMATURE_END");
 				return PREMATURE_END;
 			}
 			if (current_byte_read == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
