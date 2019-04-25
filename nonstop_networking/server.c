@@ -201,10 +201,8 @@ void setup_put(int client_fd, client* current_client) {
 }
 
 void write_reply_ok(int client_fd, client* current_client) {
-	fprintf(stderr, "current_client->offset is %zu\n", current_client->offset);
 	char * buffer = current_client->reply + current_client->offset;
 	size_t count = strlen(buffer);
-	fprintf(stderr, "buffer is %s\ncount is %zu\n", buffer, count);
 	ssize_t total_byte_written = server_write_all_to_socket(client_fd, buffer, count);
 	if (total_byte_written < 0) { //Something bad happened
 		shutdown_client(client_fd);
@@ -384,12 +382,10 @@ void read_file(int client_fd, client* current_client) {
 	char line[MAX_R_W_SIZE];
 
 
-	fprintf(stderr, "in read_file, total_byte_read is %zu, total_byte_to_read is %zu\n", total_byte_read, total_byte_to_read);
 	while (total_byte_to_read > 0) {
 		memset(line, 0, MAX_R_W_SIZE);
 		current_byte_to_read = (total_byte_to_read < MAX_R_W_SIZE) ? total_byte_to_read : MAX_R_W_SIZE;
 		current_byte_read = server_read_all_from_socket(client_fd, line, current_byte_to_read);
-		fprintf(stderr, "current_byte_read is: %zu\n", current_byte_read);
 		if (current_byte_read == CLIENT_ERROR) {
 			fclose(file);
 			delete_file(current_client->filename);
