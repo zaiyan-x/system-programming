@@ -27,6 +27,7 @@
 #define MAX_REPLY_SIZE 1024
 #define MAX_FILENAME_SIZE 256
 #define MAX_VERB_SIZE 8
+#define MAX_DIR_SIZE 7
 
 /* Client State Macros */
 #define READ_HEADER 0
@@ -42,6 +43,7 @@
 #define ACTION_PAUSED 1
 #define ACTION_COMPLETE 0
 #define PREMATURE_END -2
+#define CLIENT_ERROR -1
 
 /* Client Information Struct */
 typedef struct client_ {
@@ -57,7 +59,7 @@ typedef struct client_ {
 } client;
 
 /* Global Server Variables */
-static char* SERVER_DIR;
+static char SERVER_DIR[MAX_DIR_SIZE];
 static vector * FILE_VECTOR;
 static int SOCKET_FD;
 static int EPOLL_FD;
@@ -199,10 +201,12 @@ void setup_put(int client_fd, client* current_client) {
 }
 
 void write_reply_ok(int client_fd, client* current_client) {
+	fprintf(stderr, "current_client->offset is %zu\n", current_client->offset);
 	char * buffer = current_client->reply + current_client->offset;
 	size_t count = strlen(buffer);
+	fprintf(stderr, "buffer is %s\ncount is %zu\n", buffer, count);
 	ssize_t total_byte_written = server_write_all_to_socket(client_fd, buffer, count);
-	if (total_byte_written == -1 || total_byte_written == PREMATURE_END) { //Something bad happened
+	if (total_byte_written < 0) { //Something bad happened
 		shutdown_client(client_fd);
 		return;
 	}
@@ -245,15 +249,15 @@ void reset_epoll_mode_to_write(int client_fd) {
 	memset(&ev, 0, sizeof(struct epoll_event));
 	ev.events = EPOLLOUT;
 	ev.data.fd = client_fd;
-	epoll_ctl(EPOLL_FD, EPOLL_CTL_MOD, client_fd, &ev);
+	client_fd = epoll_ctl(EPOLL_FD, EPOLL_CTL_MOD, client_fd, &ev);
 }
 
 void log_ok(int client_fd, client* current_client) {
 	char * buffer = current_client->reply;
 	memset(buffer, 0, MAX_REPLY_SIZE);
 	sprintf(buffer, "OK\n");
-	current_client->state = WRITE_REPLY_OK;
 	current_client->offset = 0;
+	current_client->state = WRITE_REPLY_OK;
 	reset_epoll_mode_to_write(client_fd);
 }
 
@@ -373,7 +377,7 @@ void write_list(int client_fd, client* current_client) {
 
 void read_file(int client_fd, client* current_client) {
 	FILE * file = current_client->file;
-	size_t total_byte_read = ftell(file);
+	size_t total_byte_read = current_client->offset;
 	size_t total_byte_to_read = current_client->file_size - total_byte_read;
 	size_t current_byte_to_read = 0;
 	ssize_t current_byte_read = 0;
@@ -385,7 +389,12 @@ void read_file(int client_fd, client* current_client) {
 		memset(line, 0, MAX_R_W_SIZE);
 		current_byte_to_read = (total_byte_to_read < MAX_R_W_SIZE) ? total_byte_to_read : MAX_R_W_SIZE;
 		current_byte_read = server_read_all_from_socket(client_fd, line, current_byte_to_read);
-		if (current_byte_read < 0) {
+		fprintf(stderr, "current_byte_read is: %zu\n", current_byte_read);
+		if (current_byte_read == CLIENT_ERROR) {
+			fclose(file);
+			delete_file(current_client->filename);
+			return;
+		} else if (current_byte_read == PREMATURE_END) {
 			fclose(file);
 			delete_file(current_client->filename);
 			log_error(client_fd, current_client, err_bad_file_size);
@@ -393,31 +402,31 @@ void read_file(int client_fd, client* current_client) {
 		}
 
 		fwrite(line, 1, current_byte_read, file);
-		
-		if ((size_t)current_byte_read < current_byte_to_read) {
-			total_byte_read += current_byte_read;
-			total_byte_to_read -= current_byte_read;
-			break;
-		}
-		
+	
 		total_byte_read += current_byte_read;
 		total_byte_to_read -= current_byte_read;
+
+		if ((size_t)current_byte_read < current_byte_to_read) {
+			break;
+		}
 	}
 	
 	if (total_byte_to_read <= 0) { //finished
 		fclose(file);
 		//Test if overflow
+		memset(line, 0, MAX_R_W_SIZE);
 		current_byte_read = server_read_all_from_socket(client_fd, line, MAX_R_W_SIZE);
-		if (current_byte_read != 0) {
+		if (current_byte_read > 0) {
 			delete_file(current_client->filename);
 			log_error(client_fd, current_client, err_bad_file_size);
 			return;
-		}
-		
+		}	
 		//PUT is successful
 		vector_push_back(FILE_VECTOR, current_client->filename);
 		log_ok(client_fd, current_client);
+		return;
 	}
+	current_client->offset += total_byte_read;
 }
 		
 			
@@ -445,7 +454,7 @@ void read_header(int client_fd, client* current_client) {
 		memset(verb_string, 0, MAX_VERB_SIZE);
 		
 		int retval = sscanf(current_client->header, "%s %s", verb_string, current_client->filename);
-	
+
 		if (retval == 0) { //Bad format
 			log_error(client_fd, current_client, err_bad_request);
 			return;
@@ -552,7 +561,9 @@ void setup_server(char * port) {
 	
 	//Setup temporary directory
 	char template[] = "XXXXXX";
-	SERVER_DIR = mkdtemp(template);
+	char* directory = mkdtemp(template);
+	memset(SERVER_DIR, 0, MAX_DIR_SIZE);
+	strcpy(SERVER_DIR, directory);
 	print_temp_directory(SERVER_DIR);
 
 	//Setup file vector
@@ -599,7 +610,7 @@ void setup_server(char * port) {
 	}
 
 	//Initiate client dictionary data structure
-	CLIENT_DIC = dictionary_create(int_hash_function,
+	CLIENT_DIC = dictionary_create(NULL,
 				       int_compare,
 				       int_copy_constructor,
 				       int_destructor,
@@ -612,7 +623,9 @@ void setup_server(char * port) {
 void server_listen_to_client() {
 	//Setup epoll data
 	struct epoll_event ev;
+	memset(&ev, 0, sizeof(struct epoll_event));
 	struct epoll_event events[MAX_EVENTS];
+	memset(events, 0, sizeof(struct epoll_event) * MAX_EVENTS);
 
 	ev.events = EPOLLIN;
 	ev.data.fd = SOCKET_FD;
