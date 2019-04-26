@@ -438,6 +438,7 @@ void read_file(int client_fd, client* current_client) {
 		log_ok(client_fd, current_client);
 		return;
 	}
+	perror("if FUCKINGBLOCKED, should be here");
 	current_client->offset += total_byte_read;
 }
 		
@@ -624,7 +625,7 @@ void setup_server(char * port) {
 	}
 
 	//Initiate client dictionary data structure
-	CLIENT_DIC = dictionary_create(NULL,
+	CLIENT_DIC = dictionary_create(int_hash_function,
 				       int_compare,
 				       int_copy_constructor,
 				       int_destructor,

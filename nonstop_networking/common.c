@@ -29,17 +29,15 @@ ssize_t server_read_all_from_socket(int socket, char * buffer, size_t count) {
 			if (current_byte_read == -1 && errno == EINTR) {
 				continue;
 			}
+			if (current_byte_read == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+				perror("socket full, FUCKING BLOCKED");
+				break;
+			}
 			if (current_byte_read == -1 && errno != EINTR) {
-				perror("FUCKED UP");
-				perror(strerror(errno));
 				return -1;
 			}
 			if (current_byte_read == 0) {
-				perror("PREMATURE_END");
 				return PREMATURE_END;
-			}
-			if (current_byte_read == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
-				break;
 			}
 		}
 		total_byte_read += current_byte_read;
@@ -56,11 +54,11 @@ ssize_t server_write_all_to_socket(int socket, char * buffer, size_t count) {
 			if (current_byte_written == -1 && errno == EINTR) { //retry
 				continue;
 			}
-			if (current_byte_written == -1 && errno != EINTR) { //bad things happened
-				return -1;
-			}
 			if (current_byte_written == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
 				break;
+			}
+			if (current_byte_written == -1 && errno != EINTR) { //bad things happened
+				return -1;
 			}
 			if (current_byte_written == 0) {
 				return PREMATURE_END;
