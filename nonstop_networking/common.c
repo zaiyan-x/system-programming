@@ -30,8 +30,7 @@ ssize_t server_read_all_from_socket(int socket, char * buffer, size_t count) {
 				continue;
 			}
 			if (current_byte_read == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
-				perror("socket full, FUCKING BLOCKED");
-				break;
+				continue;
 			}
 			if (current_byte_read == -1 && errno != EINTR) {
 				return -1;
@@ -55,7 +54,7 @@ ssize_t server_write_all_to_socket(int socket, char * buffer, size_t count) {
 				continue;
 			}
 			if (current_byte_written == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
-				break;
+				continue;
 			}
 			if (current_byte_written == -1 && errno != EINTR) { //bad things happened
 				return -1;
