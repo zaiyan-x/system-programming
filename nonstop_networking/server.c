@@ -398,12 +398,11 @@ void read_file(int client_fd, client* current_client) {
 		current_byte_to_read = (total_byte_to_read < MAX_R_W_SIZE) ? total_byte_to_read : MAX_R_W_SIZE;
 		current_byte_read = server_read_all_from_socket(client_fd, line, current_byte_to_read);
 		if (current_byte_read == CLIENT_ERROR) {
-			perror("CLIENT_ERROR");
 			fclose(file);
 			delete_file(current_client->filename);
 			shutdown_client(client_fd);
 			return;
-		} else if (current_byte_read == PREMATURE_END) {
+		} else if (current_byte_read == (ssize_t) current_byte_to_read) {
 			fclose(file);
 			delete_file(current_client->filename);
 			log_error(client_fd, current_client, err_bad_file_size);
@@ -411,17 +410,8 @@ void read_file(int client_fd, client* current_client) {
 		}
 
 		current_byte_written = fwrite(line, 1, current_byte_read, file);
-		if (current_byte_written != (size_t) current_byte_read) {
-			perror("WTF IS GOING ON");
-		}
-
 		total_byte_read += current_byte_read;
 		total_byte_to_read -= current_byte_read;
-
-		if ((size_t)current_byte_read < current_byte_to_read) {
-			log_error(client_fd, current_client, err_bad_file_size);
-			return;
-		}
 	}
 	
 	if (total_byte_to_read <= 0) { //finished
