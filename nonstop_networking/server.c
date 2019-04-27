@@ -402,7 +402,7 @@ void read_file(int client_fd, client* current_client) {
 			delete_file(current_client->filename);
 			shutdown_client(client_fd);
 			return;
-		} else if (current_byte_read == (ssize_t) current_byte_to_read) {
+		} else if (current_byte_read < (ssize_t) current_byte_to_read) {
 			fclose(file);
 			delete_file(current_client->filename);
 			log_error(client_fd, current_client, err_bad_file_size);
