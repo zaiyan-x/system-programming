@@ -419,7 +419,8 @@ void read_file(int client_fd, client* current_client) {
 		total_byte_to_read -= current_byte_read;
 
 		if ((size_t)current_byte_read < current_byte_to_read) {
-			break;
+			log_error(client_fd, current_client, err_bad_file_size);
+			return;
 		}
 	}
 	
