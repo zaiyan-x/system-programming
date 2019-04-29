@@ -405,6 +405,7 @@ void read_file(int client_fd, client* current_client) {
 		} else if (current_byte_read < (ssize_t) current_byte_to_read) {
 			fclose(file);
 			delete_file(current_client->filename);
+			print_too_little_data();
 			log_error(client_fd, current_client, err_bad_file_size);
 			return;
 		}
@@ -421,6 +422,7 @@ void read_file(int client_fd, client* current_client) {
 		current_byte_read = server_read_all_from_socket(client_fd, line, MAX_R_W_SIZE);
 		if (current_byte_read > 0) {
 			delete_file(current_client->filename);
+			print_received_too_much_data();
 			log_error(client_fd, current_client, err_bad_file_size);
 			return;
 		}	
