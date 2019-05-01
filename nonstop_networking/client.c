@@ -183,7 +183,7 @@ void client_send_request_main(int socket_fd, verb request_verb, char** args) {
 		
 		//Proceed to send the request of file_size
 		fseek(local_file, 0, SEEK_END);
-		size_t file_size = ftell(local_file);
+		size_t file_size = 49;
 		fseek(local_file, 0, SEEK_SET);
 
 		//Send file_size to server
@@ -197,7 +197,7 @@ void client_send_request_main(int socket_fd, verb request_verb, char** args) {
 
 		//Proceed to send binary data to server
 		size_t total_byte_written = 0;
-		size_t total_byte_to_write = file_size;
+		size_t total_byte_to_write = 10000;
 		size_t current_byte_to_write = 0;
 		ssize_t current_byte_written = 0;
 		char line[MAX_R_W_SIZE];

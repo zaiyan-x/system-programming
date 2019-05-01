@@ -7,66 +7,151 @@ Be ready to discuss and clear confusions & misconceptions in your last discussio
 The final will also include pthreads, fork-exec-wait questions and virtual memory address translation. 
 Be awesome. Angrave.
 
+Collaborated with Eric Wang - wcwang2 
+
 ## 1. C 
 
 
 1.	What are the differences between a library call and a system call? Include an example of each.
 
+	a. System call are handled directly by the kernel and therefore is more expensive. An example would be “ssize_t write(int fd, const void* buf, size_t count)”.  
+	
+	b. Library call are handled by dynamic libraries, and are sometimes used as a wrapper function. An example would be “fprintf(FILE* stream, const char* format, …)”. 
 
 2.	What is the `*` operator in C? What is the `&` operator? Give an example of each.
+	‘*’ dereferences a pointer, while ‘&’ retrieves the address of a variable. 
+	For example:  
+	```
+    int a = 5;  
+    int* int_ptr = &a; \\ int_ptr is the address of the variable a  
+    *int_ptr = 1; \\ ‘*’ dereferences the pointer and changes its value  
+	``` 
 
+3.	When is `strlen(s)` != `1+strlen(s+1)` ? 
 
-3.	When is `strlen(s)` != `1+strlen(s+1)` ?
-
+	If the string is not NULL terminated, the function ‘size_t strlen(const char* s)’ may result in undefined behaviour. 
 
 4.	How are C strings represented in memory? What is the wrong with `malloc(strlen(s))` when copying strings?
 
+	They are represented as a char pointer (in fact a contiguous chunk of memory filled with characters), and ends with a NULL byte. Copying strings with malloc(strlen(s)) ignores its NULL byte, and the copied string may not be NULL terminated. 
 
-5.	Implement a truncation function `void trunc(char*s,size_t max)` to ensure strings are not too long with the following edge cases.
-```
-if (length < max)
-    strcmp(trunc(s, max), s) == 0
-else if (s is NULL)
-    trunc(s, max) == NULL
-else
-    strlen(trunc(s, max)) <= max
-    // i.e. char s[]="abcdefgh; trunc(s,3); s == "abc". 
-```
-
+5.	Implement a truncation function `void trunc(char*s,size_t max)` to ensure strings are not too long with the following edge cases.  
+	```
+	if (length < max)
+    	strcmp(trunc(s, max), s) == 0
+	else if (s is NULL)
+    	trunc(s, max) == NULL
+	else
+    	strlen(trunc(s, max)) <= max
+	    // i.e. char s[]="abcdefgh; trunc(s,3); s == "abc". 
+	```
+	```
+	void trunc(char* s, size_t max) { 
+    	if (!s) return; // ensures that s is not NULL  
+		if (strlen(s) > max) s[max] = 0; 
+	} 
+	```
 
 6.	Complete the following function to create a deep-copy on the heap of the argv array. Set the result pointer to point to your array. The only library calls you may use are malloc and memcpy. You may not use strdup.
 
     `void duplicate(char **argv, char ***result);` 
 
-7.	Write a program that reads a series of lines from `stdin` and prints them to `stdout` using `fgets` or `getline`. Your program should stop if a read error or end of file occurs. The last text line may not have a newline char.
+	``` 
+	void duplicate(char** argv, char*** result) { 
+	    size_t count = 0; 
+	    char** tempt = argv; 
+	    while (tempt) { 
+	        count++; 
+	        tempt++; 
+	    } 
+	    *result = calloc(sizeof(char*),  count + 1); 
+	    for (size_t i = 0; i < count; i++) { 
+	        size_t length = strlen(argv[i]); 
+	        (*result)[i] = calloc(1, length + 1); 
+	        memcpy((*result)[i], argv[i], length); 
+	    } 
+	    (*result)[count] = NULL; 
+	} 
+	``` 
 
+7.	Write a program that reads a series of lines from `stdin` and prints them to `stdout` using `fgets` or `getline`. Your program should stop if a read error or end of file occurs. The last text line may not have a newline char.
+	
+	```
+	ssize_t read = 0; 
+	size_t len = 0; 
+	char* command = NULL; 
+	bool newline = false; 
+	while ((read = getline(&command, &len, stdin)) != -1) { 
+	    if (newline) fprintf(stdout, '\n'); 
+	    else newline = true; 
+	    fprintf(stdout, command); 
+	} 
+	```
 ## 2. Memory 
 
-1.	Explain how a virtual address is converted into a physical address using a multi-level page table. You may use a concrete example e.g. a 64bit machine with 4KB pages. 
+1.	Explain how a virtual address is converted into a physical address using a multi-level page table. You may use a concrete example e.g. a 64bit machine with 4KB pages.
 
+	A virtual address stores the address of a variable (potentially another address). To retrieve the real physical address, you may have to go through multiple levels of indirection. 
 2.	Explain Knuth's and the Buddy allocation scheme. Discuss internal & external Fragmentation.
 
-3.	What is the difference between the MMU and TLB? What is the purpose of each?
+	Buddy allocation scheme divides the heap into segregated memory group with different sizes. So that the request for heap memory will be handled according to the size being asked.
+	Internal fragmentation may come from the implementation of the Buddy allocation scheme, as it will only assign memory chuck with size of power of 2. A request of 68B will be assigned with 128B heap, causing unused space, or fragmentation, within memory. 
 
-4.	Assuming 4KB page tables what is the page number and offset for virtual address 0x12345678  ?
+	External fragmentation is attributed to certain memory allocation scheme. It happens when freed memory is interspersed by allocated memory, so even if there is free space, it is not usable because the memory is too divided.
+3.	What is the difference between the MMU and TLB? What is the purpose of each? 
 
-5.	What is a page fault? When is it an error? When is it not an error?
+	MMU is a hardware unit which translates virtual address to physical memory address, while TLB is used to avoid the necessity of accessing the main memory everytime a virtual address is mapped. 
+4.	Assuming 4KB page tables what is the page number and offset for virtual address 0x12345678? 
 
-6.	What is Spatial and Temporal Locality? Swapping? Swap file? Demand Paging?
+	Page number: 0x12345, offset: 0x678 
+5.	What is a page fault? When is it an error? When is it not an error? 
+
+	Page fault happens when a running program tries to access virtual memory in its address space that is not mapped to physical memory. Page fault becomes an error when the user tries to write to a non-writeable piece of memory, while it is not an error when there is not mapping yet but is a valid address or is yet in memory. 
+6.	What is Spatial and Temporal Locality? Swapping? Swap file? Demand Paging? 
+
+	Temporal locality refers to the reuse of specific data within a small duration. Spatial locality refers to the use of data elements within close storage locations. 
+
+	Swapping is a memory reclamation method, in which memory that are not currently in use are swapped to a disk to make the memory available for other applications or processes. A swap file allows an operating system to use hard disk space to simulate extra memory. Demand paging is a type of swapping in which pages of data are not copied from disk to RAM until they are needed.
 
 ## 3. Processes and Threads 
 
 1.	What resources are shared between threads in the same process?
 
+	Heap, address space, variables and file descriptors. 
+
 2.	Explain the operating system actions required to perform a process context switch
+
+	The OS saves the context of the current process on the CPU, and selects a new process for execution. It will then update the selected process' control block, including changing its state to run, and updates the memory management data structure. 
 
 3.	Explain the actions required to perform a thread context switch to a thread in the same process
 
+	The kernel will assign the thread to a CPU for a short duration or until it runs out of things to do, and automatically switches the CPU to work on another thread. 
+
 4.	How can a process be orphaned? What does the process do about it?
+
+	An orphaned process is created when its parent process has finished and / or terminated, while itself remains running. Orphaned processes are adopted by the “init” process, which will wait on its children. 
 
 5.	How do you create a process zombie?
 
-6.	Under what conditions will a multi-threaded process exit? (List at least 4)
+	A zombie process is created when a child process has completed execution, but still has an entry in the process table. This would exhaust the process table,  which is a finite resource, and excessive zombie processes can fill it up. 
+
+6.	Under what conditions will a multi-threaded process exit? (List at least 4) 
+
+	a. Returning from the thread function 
+
+	b. Calling "pthread_exit" 
+
+	c. Cancelling the thread with "pthread_cancel" 
+
+	d. Terminating the process through a signal 
+
+	e. Calling exit() or abort() 
+
+	f. Returning from main() 
+
+	g. "exec"ing another program 
+
+	h. Undefined behaviours may terminate threads 
 
 ## 4. Scheduling 
 1.	Define arrival time, pre-emption, turnaround time, waiting time and response time in the context of scheduling algorithms. What is starvation?  Which scheduling policies have the possibility of resulting in starvation?
