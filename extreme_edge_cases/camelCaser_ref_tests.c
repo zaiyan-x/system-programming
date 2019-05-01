@@ -9,23 +9,7 @@
 
 int main() {
     // Enter the string you want to test with the reference here
-    /* char input[65];
-
-    int j = 0;
-    for(j=1;j<32;j++){
-    	input[j*2-2]=j;
-    	input[j*2-1]='.';
-    }
-    input[62] = 127;
-    input[63] = '.';
-    input[64] = 0; */
-
-    /*char input[3];
-    input[0] = 0;
-    input[1] = '.';
-    input[2] = 0;*/
-
-    char* input = "2HELLO WORLD       FUCK.";
+    char* input = " ~ ! why?\\$#@ i1% wW\aNt f$U(c)k \nYoU \tS)*#$&on (iWO!uld%^LiK@#E (>|?) TOF ^ uCk ?\n KI\"\"LL U$*%)*";
     // This function prints the reference implementation output on the terminal
     print_camelCaser(input);
 
